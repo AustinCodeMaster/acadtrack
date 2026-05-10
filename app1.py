@@ -47,7 +47,7 @@ else:
     # Get unique names from DB for the dropdown
     all_records = db.all()
     names = sorted(list(set([r['name'] for r in all_records])))
-    
+    # adding something
     if not names:
         st.info("No data found. Please go to 'Enter Data' to add some records.")
     else:
