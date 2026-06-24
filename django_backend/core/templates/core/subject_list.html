@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Accounts</title>
+    <title>Subjects</title>
     <link rel="stylesheet" href="{% static 'core/style.css' %}" />
   </head>
   <body>
@@ -24,6 +24,10 @@
         <a href="{% url 'subject_list' %}">Subjects</a>
         <a href="{% url 'user_list' %}">Users</a>
         {% endif %}
+        <form method="post" action="{% url 'logout' %}" class="inline-form">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Logout</button>
+        </form>
       </nav>
     </header>
 
@@ -34,41 +38,38 @@
           Active subject: <strong>{{ active_subject.subject_name }}</strong>
         </p>
       </section>
+      {% endif %} {% if messages %}
+      <section>
+        {% for message in messages %}
+        <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </section>
       {% endif %}
+
       <section class="panel">
-        <h2>User Accounts</h2>
-        <a class="btn" href="{% url 'user_create' %}">Create User</a>
+        <h2>Subjects</h2>
+        <a class="btn" href="{% url 'subject_create' %}">Create Subject</a>
         <table>
           <thead>
             <tr>
-              <th>Username</th>
-              <th>Full Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Subjects</th>
-              <th>Status</th>
+              <th>Code</th>
+              <th>Name</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {% for row in user_rows %}
+            {% for subject in subjects %}
             <tr>
-              <td>{{ row.user_obj.username }}</td>
+              <td>{{ subject.subject_code }}</td>
+              <td>{{ subject.subject_name }}</td>
               <td>
-                {{ row.user_obj.first_name }} {{ row.user_obj.last_name }}
-              </td>
-              <td>{{ row.user_obj.email }}</td>
-              <td>{{ row.role|default:'N/A' }}</td>
-              <td>{{ row.subjects|default:'-' }}</td>
-              <td>{{ row.status|default:'N/A' }}</td>
-              <td>
-                <a href="{% url 'user_update' row.user_obj.id %}">Edit</a> |
-                <a href="{% url 'user_delete' row.user_obj.id %}">Delete</a>
+                <a href="{% url 'subject_update' subject.id %}">Edit</a> |
+                <a href="{% url 'subject_delete' subject.id %}">Delete</a>
               </td>
             </tr>
             {% empty %}
             <tr>
-              <td colspan="7">No users found.</td>
+              <td colspan="3">No subjects found.</td>
             </tr>
             {% endfor %}
           </tbody>

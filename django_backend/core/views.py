@@ -10,10 +10,34 @@ from .forms import (
 	AssessmentTaskForm,
 	CompetencyForm,
 	LearnerProfileForm,
+	SubjectForm,
+	SubjectSelectionForm,
 	UserAccountCreateForm,
 	UserAccountUpdateForm,
 )
-from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, UserAccount
+from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, Subject, UserAccount
+
+
+ACTIVE_SUBJECT_SESSION_KEY = 'active_subject_id'
+
+
+def _default_role_for_user(user):
+	if user.is_superuser:
+		return UserAccount.ROLE_ADMINISTRATOR
+	if user.is_staff:
+		return UserAccount.ROLE_TEACHER
+	return UserAccount.ROLE_LEARNER
+
+
+def _ensure_account(user):
+	account, _ = UserAccount.objects.get_or_create(
+		user=user,
+		defaults={
+			'role': _default_role_for_user(user),
+			'status': UserAccount.STATUS_ACTIVE if user.is_active else UserAccount.STATUS_INACTIVE,
+		},
+	)
+	return account
 
 
 def _role_for(user):
@@ -37,9 +61,34 @@ def _deny_if_not(condition):
 	return None
 
 
+def _teacher_subjects(user):
+	if not user.is_authenticated:
+		return Subject.objects.none()
+	role = _role_for(user)
+	if user.is_superuser or role == UserAccount.ROLE_ADMINISTRATOR:
+		return Subject.objects.all()
+	if role == UserAccount.ROLE_TEACHER:
+		account = UserAccount.objects.filter(user=user).first()
+		return account.subjects.all() if account else Subject.objects.none()
+	return Subject.objects.none()
+
+
+def _active_subject_for_request(request):
+	subject_id = request.session.get(ACTIVE_SUBJECT_SESSION_KEY)
+	if not subject_id:
+		return None
+	return _teacher_subjects(request.user).filter(pk=subject_id).first()
+
+
+def _require_teacher_subject(request):
+	if _role_for(request.user) != UserAccount.ROLE_TEACHER:
+		return None
+	if _active_subject_for_request(request):
+		return None
+	return redirect('subject_select')
+
+
 def home(request):
-	if request.user.is_authenticated:
-		return redirect('dashboard')
 	return redirect('login')
 
 
@@ -49,23 +98,46 @@ def dashboard(request):
 	if access_denied:
 		return access_denied
 
-	learner_count = LearnerProfile.objects.count()
-	competency_count = Competency.objects.count()
-	task_count = AssessmentTask.objects.count()
-	result_count = AssessmentResult.objects.count()
-	overall_average = AssessmentResult.objects.aggregate(avg=Avg('score'))['avg'] or 0
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+
+	active_subject = _active_subject_for_request(request)
+	competency_queryset = Competency.objects.all()
+	task_queryset = AssessmentTask.objects.all()
+	result_queryset = AssessmentResult.objects.all()
+	learner_queryset = LearnerProfile.objects.all()
+	if active_subject:
+		competency_queryset = competency_queryset.filter(subject=active_subject)
+		task_queryset = task_queryset.filter(competency__subject=active_subject)
+		result_queryset = result_queryset.filter(task__competency__subject=active_subject)
+		learner_queryset = learner_queryset.filter(results__task__competency__subject=active_subject).distinct()
+
+	learner_count = learner_queryset.count()
+	competency_count = competency_queryset.count()
+	task_count = task_queryset.count()
+	result_count = result_queryset.count()
+	overall_average = result_queryset.aggregate(avg=Avg('score'))['avg'] or 0
 
 	competency_data = list(
-		Competency.objects.annotate(avg_score=Avg('tasks__results__score'))
+		competency_queryset.annotate(avg_score=Avg('tasks__results__score'))
 		.values('competency_code', 'avg_score')
 		.order_by('competency_code')
 	)
 
-	class_data = list(
-		LearnerProfile.objects.annotate(avg_score=Avg('results__score'), result_total=Count('results'))
-		.values('class_name', 'avg_score', 'result_total')
-		.order_by('class_name')
+	class_summary = (
+		result_queryset.values('learner__class_name')
+		.annotate(avg_score=Avg('score'), result_total=Count('id'))
+		.order_by('learner__class_name')
 	)
+	class_data = [
+		{
+			'class_name': row['learner__class_name'],
+			'avg_score': row['avg_score'],
+			'result_total': row['result_total'],
+		}
+		for row in class_summary
+	]
 
 	return render(
 		request,
@@ -87,8 +159,13 @@ def user_list(request):
 	access_denied = _deny_if_not(_is_admin(request.user))
 	if access_denied:
 		return access_denied
-	users = User.objects.select_related('account').all().order_by('username')
-	return render(request, 'core/user_list.html', {'users': users})
+	users = User.objects.all().order_by('username')
+	user_rows = []
+	for user_obj in users:
+		account = _ensure_account(user_obj)
+		subjects = ', '.join(account.subjects.values_list('subject_name', flat=True))
+		user_rows.append({'user_obj': user_obj, 'role': account.role, 'status': account.status, 'subjects': subjects})
+	return render(request, 'core/user_list.html', {'user_rows': user_rows})
 
 
 @login_required
@@ -115,11 +192,12 @@ def user_update(request, user_id):
 		return access_denied
 
 	user_obj = get_object_or_404(User, pk=user_id)
+	account = _ensure_account(user_obj)
 	initial = {
 		'full_name': f'{user_obj.first_name} {user_obj.last_name}'.strip() or user_obj.username,
 		'email': user_obj.email,
-		'role': user_obj.account.role,
-		'status': user_obj.account.status,
+		'role': account.role,
+		'status': account.status,
 	}
 	if request.method == 'POST':
 		form = UserAccountUpdateForm(request.POST, user_obj=user_obj)
@@ -147,13 +225,68 @@ def user_delete(request, user_id):
 
 
 @login_required
+def subject_list(request):
+	access_denied = _deny_if_not(_is_admin(request.user))
+	if access_denied:
+		return access_denied
+	subjects = Subject.objects.all()
+	return render(request, 'core/subject_list.html', {'subjects': subjects})
+
+
+@login_required
+def subject_create(request):
+	access_denied = _deny_if_not(_is_admin(request.user))
+	if access_denied:
+		return access_denied
+	if request.method == 'POST':
+		form = SubjectForm(request.POST)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Subject created successfully.')
+			return redirect('subject_list')
+	else:
+		form = SubjectForm()
+	return render(request, 'core/form.html', {'form': form, 'title': 'Create Subject'})
+
+
+@login_required
+def subject_update(request, pk):
+	access_denied = _deny_if_not(_is_admin(request.user))
+	if access_denied:
+		return access_denied
+	subject = get_object_or_404(Subject, pk=pk)
+	if request.method == 'POST':
+		form = SubjectForm(request.POST, instance=subject)
+		if form.is_valid():
+			form.save()
+			messages.success(request, 'Subject updated successfully.')
+			return redirect('subject_list')
+	else:
+		form = SubjectForm(instance=subject)
+	return render(request, 'core/form.html', {'form': form, 'title': 'Update Subject'})
+
+
+@login_required
+def subject_delete(request, pk):
+	access_denied = _deny_if_not(_is_admin(request.user))
+	if access_denied:
+		return access_denied
+	subject = get_object_or_404(Subject, pk=pk)
+	if request.method == 'POST':
+		subject.delete()
+		messages.success(request, 'Subject deleted successfully.')
+		return redirect('subject_list')
+	return render(request, 'core/confirm_delete.html', {'title': 'Delete Subject', 'object': subject})
+
+
+@login_required
 def learner_list(request):
 	access_denied = _deny_if_not(_is_teacher_or_admin(request.user))
 	if access_denied:
 		return access_denied
 
 	query = request.GET.get('q', '').strip()
-	learners = LearnerProfile.objects.select_related('user_account__user').all()
+	learners = LearnerProfile.objects.select_related('user_account__user', 'created_by').all()
 	if query:
 		learners = learners.filter(
 			full_name__icontains=query,
@@ -171,7 +304,9 @@ def learner_create(request):
 	if request.method == 'POST':
 		form = LearnerProfileForm(request.POST)
 		if form.is_valid():
-			form.save()
+			learner = form.save(commit=False)
+			learner.created_by = request.user
+			learner.save()
 			messages.success(request, 'Learner profile created successfully.')
 			return redirect('learner_list')
 	else:
@@ -217,7 +352,13 @@ def competency_list(request):
 	if access_denied:
 		return access_denied
 
-	competencies = Competency.objects.select_related('created_by').all()
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	competencies = Competency.objects.select_related('created_by', 'subject').all()
+	if active_subject:
+		competencies = competencies.filter(subject=active_subject)
 	return render(request, 'core/competency_list.html', {'competencies': competencies})
 
 
@@ -227,16 +368,23 @@ def competency_create(request):
 	if access_denied:
 		return access_denied
 
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+
 	if request.method == 'POST':
-		form = CompetencyForm(request.POST)
+		form = CompetencyForm(request.POST, active_subject=active_subject, request_user=request.user)
 		if form.is_valid():
 			competency = form.save(commit=False)
 			competency.created_by = request.user
+			if active_subject:
+				competency.subject = active_subject
 			competency.save()
 			messages.success(request, 'Competency created successfully.')
 			return redirect('competency_list')
 	else:
-		form = CompetencyForm()
+		form = CompetencyForm(active_subject=active_subject, request_user=request.user)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Create Competency'})
 
 
@@ -246,15 +394,22 @@ def competency_update(request, pk):
 	if access_denied:
 		return access_denied
 
-	competency = get_object_or_404(Competency, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	competency_filters = {'pk': pk}
+	if active_subject:
+		competency_filters['subject'] = active_subject
+	competency = get_object_or_404(Competency, **competency_filters)
 	if request.method == 'POST':
-		form = CompetencyForm(request.POST, instance=competency)
+		form = CompetencyForm(request.POST, instance=competency, active_subject=active_subject, request_user=request.user)
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'Competency updated successfully.')
 			return redirect('competency_list')
 	else:
-		form = CompetencyForm(instance=competency)
+		form = CompetencyForm(instance=competency, active_subject=active_subject, request_user=request.user)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Update Competency'})
 
 
@@ -264,7 +419,14 @@ def competency_delete(request, pk):
 	if access_denied:
 		return access_denied
 
-	competency = get_object_or_404(Competency, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	competency_filters = {'pk': pk}
+	if active_subject:
+		competency_filters['subject'] = active_subject
+	competency = get_object_or_404(Competency, **competency_filters)
 	if request.method == 'POST':
 		competency.delete()
 		messages.success(request, 'Competency deleted successfully.')
@@ -278,7 +440,13 @@ def task_list(request):
 	if access_denied:
 		return access_denied
 
-	tasks = AssessmentTask.objects.select_related('competency', 'teacher').all()
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	tasks = AssessmentTask.objects.select_related('competency', 'teacher', 'competency__subject').all()
+	if active_subject:
+		tasks = tasks.filter(competency__subject=active_subject)
 	return render(request, 'core/task_list.html', {'tasks': tasks})
 
 
@@ -288,8 +456,13 @@ def task_create(request):
 	if access_denied:
 		return access_denied
 
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+
 	if request.method == 'POST':
-		form = AssessmentTaskForm(request.POST)
+		form = AssessmentTaskForm(request.POST, active_subject=active_subject)
 		if form.is_valid():
 			task = form.save(commit=False)
 			task.teacher = request.user
@@ -297,7 +470,7 @@ def task_create(request):
 			messages.success(request, 'Assessment task created successfully.')
 			return redirect('task_list')
 	else:
-		form = AssessmentTaskForm()
+		form = AssessmentTaskForm(active_subject=active_subject)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Create Assessment Task'})
 
 
@@ -307,15 +480,22 @@ def task_update(request, pk):
 	if access_denied:
 		return access_denied
 
-	task = get_object_or_404(AssessmentTask, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	task_filters = {'pk': pk}
+	if active_subject:
+		task_filters['competency__subject'] = active_subject
+	task = get_object_or_404(AssessmentTask, **task_filters)
 	if request.method == 'POST':
-		form = AssessmentTaskForm(request.POST, instance=task)
+		form = AssessmentTaskForm(request.POST, instance=task, active_subject=active_subject)
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'Assessment task updated successfully.')
 			return redirect('task_list')
 	else:
-		form = AssessmentTaskForm(instance=task)
+		form = AssessmentTaskForm(instance=task, active_subject=active_subject)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Update Assessment Task'})
 
 
@@ -325,7 +505,14 @@ def task_delete(request, pk):
 	if access_denied:
 		return access_denied
 
-	task = get_object_or_404(AssessmentTask, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	task_filters = {'pk': pk}
+	if active_subject:
+		task_filters['competency__subject'] = active_subject
+	task = get_object_or_404(AssessmentTask, **task_filters)
 	if request.method == 'POST':
 		task.delete()
 		messages.success(request, 'Assessment task deleted successfully.')
@@ -339,7 +526,13 @@ def result_list(request):
 	if access_denied:
 		return access_denied
 
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
 	results = AssessmentResult.objects.select_related('learner', 'task', 'task__competency', 'teacher').all()
+	if active_subject:
+		results = results.filter(task__competency__subject=active_subject)
 	return render(request, 'core/result_list.html', {'results': results})
 
 
@@ -349,8 +542,13 @@ def result_create(request):
 	if access_denied:
 		return access_denied
 
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+
 	if request.method == 'POST':
-		form = AssessmentResultForm(request.POST)
+		form = AssessmentResultForm(request.POST, active_subject=active_subject)
 		if form.is_valid():
 			result = form.save(commit=False)
 			result.teacher = request.user
@@ -358,7 +556,7 @@ def result_create(request):
 			messages.success(request, 'Assessment result recorded successfully.')
 			return redirect('result_list')
 	else:
-		form = AssessmentResultForm()
+		form = AssessmentResultForm(active_subject=active_subject)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Record Assessment Result'})
 
 
@@ -368,9 +566,16 @@ def result_update(request, pk):
 	if access_denied:
 		return access_denied
 
-	result = get_object_or_404(AssessmentResult, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	result_filters = {'pk': pk}
+	if active_subject:
+		result_filters['task__competency__subject'] = active_subject
+	result = get_object_or_404(AssessmentResult, **result_filters)
 	if request.method == 'POST':
-		form = AssessmentResultForm(request.POST, instance=result)
+		form = AssessmentResultForm(request.POST, instance=result, active_subject=active_subject)
 		if form.is_valid():
 			updated = form.save(commit=False)
 			updated.teacher = request.user
@@ -378,7 +583,7 @@ def result_update(request, pk):
 			messages.success(request, 'Assessment result updated successfully.')
 			return redirect('result_list')
 	else:
-		form = AssessmentResultForm(instance=result)
+		form = AssessmentResultForm(instance=result, active_subject=active_subject)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Update Assessment Result'})
 
 
@@ -388,7 +593,14 @@ def result_delete(request, pk):
 	if access_denied:
 		return access_denied
 
-	result = get_object_or_404(AssessmentResult, pk=pk)
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+	result_filters = {'pk': pk}
+	if active_subject:
+		result_filters['task__competency__subject'] = active_subject
+	result = get_object_or_404(AssessmentResult, **result_filters)
 	if request.method == 'POST':
 		result.delete()
 		messages.success(request, 'Assessment result deleted successfully.')
@@ -402,11 +614,18 @@ def report_view(request):
 	if access_denied:
 		return access_denied
 
+	subject_required = _require_teacher_subject(request)
+	if subject_required:
+		return subject_required
+	active_subject = _active_subject_for_request(request)
+
 	class_filter = request.GET.get('class_name', '').strip()
 	competency_filter = request.GET.get('competency', '').strip()
 	rating_filter = request.GET.get('rating', '').strip()
 
 	results = AssessmentResult.objects.select_related('learner', 'task', 'task__competency').all()
+	if active_subject:
+		results = results.filter(task__competency__subject=active_subject)
 	if class_filter:
 		results = results.filter(learner__class_name=class_filter)
 	if competency_filter:
@@ -422,6 +641,8 @@ def report_view(request):
 
 	class_choices = LearnerProfile.objects.values_list('class_name', flat=True).distinct().order_by('class_name')
 	competencies = Competency.objects.all().order_by('competency_code')
+	if active_subject:
+		competencies = competencies.filter(subject=active_subject)
 
 	return render(
 		request,
@@ -448,7 +669,50 @@ def feedback_view(request):
 	if role == UserAccount.ROLE_LEARNER:
 		learner = LearnerProfile.objects.filter(user_account=request.user.account).first()
 		results = AssessmentResult.objects.filter(learner=learner).select_related('task', 'task__competency') if learner else []
+		feedback_message = 'Showing your personal assessment feedback.'
 	else:
+		subject_required = _require_teacher_subject(request)
+		if subject_required:
+			return subject_required
+		active_subject = _active_subject_for_request(request)
 		results = AssessmentResult.objects.select_related('learner', 'task', 'task__competency').all()
+		if active_subject:
+			results = results.filter(task__competency__subject=active_subject)
+		feedback_message = 'Showing all learner assessment feedback.'
 
-	return render(request, 'core/feedback.html', {'results': results, 'role': role})
+	return render(
+		request,
+		'core/feedback.html',
+		{'results': results, 'role': role, 'feedback_message': feedback_message},
+	)
+
+
+@login_required
+def subject_select(request):
+	if _role_for(request.user) != UserAccount.ROLE_TEACHER:
+		return redirect('dashboard')
+
+	subjects = _teacher_subjects(request.user)
+	if not subjects.exists():
+		return HttpResponseForbidden('No subjects are assigned to your account. Contact an administrator.')
+
+	if request.method == 'POST':
+		form = SubjectSelectionForm(request.POST, subjects=subjects)
+		if form.is_valid():
+			subject = form.cleaned_data['subject']
+			request.session[ACTIVE_SUBJECT_SESSION_KEY] = subject.id
+			messages.success(request, f'You are now working in {subject.subject_name}.')
+			return redirect('dashboard')
+		messages.error(request, 'Please select a valid subject.')
+	else:
+		form = SubjectSelectionForm(subjects=subjects)
+
+	active_subject = _active_subject_for_request(request)
+	return render(
+		request,
+		'core/subject_select.html',
+		{
+			'form': form,
+			'active_subject': active_subject,
+		},
+	)

@@ -1,4 +1,4 @@
-{% load static %}
+{% load static role_tags %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -20,7 +20,12 @@
         <a href="{% url 'result_list' %}">Results</a>
         <a href="{% url 'report_view' %}">Reports</a>
         <a href="{% url 'feedback_view' %}">Feedback</a>
+        {% if show_subject_switch %}
+        <a href="{% url 'subject_select' %}">Select Subject</a>
+        {% endif %} {% if user|can_manage_users %}
+        <a href="{% url 'subject_list' %}">Subjects</a>
         <a href="{% url 'user_list' %}">Users</a>
+        {% endif %}
         <form method="post" action="{% url 'logout' %}" class="inline-form">
           {% csrf_token %}
           <button type="submit" class="link-button">Logout</button>
@@ -30,7 +35,13 @@
     </header>
 
     <main class="container">
-      {% if messages %}
+      {% if active_subject %}
+      <section class="panel">
+        <p>
+          Active subject: <strong>{{ active_subject.subject_name }}</strong>
+        </p>
+      </section>
+      {% endif %} {% if messages %}
       <section>
         {% for message in messages %}
         <div class="message {{ message.tags }}">{{ message }}</div>

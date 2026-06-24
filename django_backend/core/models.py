@@ -3,6 +3,17 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+class Subject(models.Model):
+	subject_code = models.CharField(max_length=20, unique=True)
+	subject_name = models.CharField(max_length=100, unique=True)
+
+	class Meta:
+		ordering = ['subject_name']
+
+	def __str__(self):
+		return f'{self.subject_code} - {self.subject_name}'
+
+
 class UserAccount(models.Model):
 	ROLE_ADMINISTRATOR = 'Administrator'
 	ROLE_TEACHER = 'Teacher'
@@ -23,6 +34,7 @@ class UserAccount(models.Model):
 	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='account')
 	role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
+	subjects = models.ManyToManyField(Subject, blank=True, related_name='teachers')
 
 	class Meta:
 		ordering = ['user__username']
@@ -41,7 +53,20 @@ class LearnerProfile(models.Model):
 		(GENDER_OTHER, 'Other'),
 	]
 
-	user_account = models.OneToOneField(UserAccount, on_delete=models.CASCADE, related_name='learner_profile')
+	user_account = models.OneToOneField(
+		UserAccount,
+		on_delete=models.CASCADE,
+		related_name='learner_profile',
+		null=True,
+		blank=True,
+	)
+	created_by = models.ForeignKey(
+		User,
+		on_delete=models.PROTECT,
+		related_name='created_learners',
+		null=True,
+		blank=True,
+	)
 	admission_number = models.CharField(max_length=20, unique=True)
 	full_name = models.CharField(max_length=100)
 	gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
@@ -56,6 +81,7 @@ class LearnerProfile(models.Model):
 
 
 class Competency(models.Model):
+	subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='competencies', null=True, blank=True)
 	competency_code = models.CharField(max_length=20, unique=True)
 	competency_name = models.CharField(max_length=100)
 	description = models.TextField(blank=True)

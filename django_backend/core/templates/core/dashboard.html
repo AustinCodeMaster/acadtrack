@@ -1,4 +1,4 @@
-{% load static %}
+{% load static role_tags %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -19,11 +19,23 @@
         <a href="{% url 'result_list' %}">Results</a>
         <a href="{% url 'report_view' %}">Reports</a>
         <a href="{% url 'feedback_view' %}">Feedback</a>
+        {% if show_subject_switch %}
+        <a href="{% url 'subject_select' %}">Select Subject</a>
+        {% endif %} {% if user|can_manage_users %}
+        <a href="{% url 'subject_list' %}">Subjects</a>
         <a href="{% url 'user_list' %}">Users</a>
+        {% endif %}
       </nav>
     </header>
 
     <main class="container">
+      {% if active_subject %}
+      <section class="panel">
+        <p>
+          Active subject: <strong>{{ active_subject.subject_name }}</strong>
+        </p>
+      </section>
+      {% endif %}
       <section class="grid-cards">
         <article class="card">
           <h3>Learners</h3>
