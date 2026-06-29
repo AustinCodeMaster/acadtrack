@@ -15,10 +15,10 @@ ACCOUNT_ROLE_CHOICES = [
 class AccountAuthenticationForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['username'].label = 'Email address'
-        self.fields['username'].widget = forms.EmailInput(attrs={
-            'autocomplete': 'email',
-            'placeholder': 'you@example.com',
+        self.fields['username'].label = 'Email address or username'
+        self.fields['username'].widget = forms.TextInput(attrs={
+            'autocomplete': 'username',
+            'placeholder': 'you@example.com or username',
         })
         self.fields['password'].widget = forms.PasswordInput(attrs={
             'autocomplete': 'current-password',

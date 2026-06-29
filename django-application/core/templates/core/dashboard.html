@@ -36,9 +36,54 @@
         </p>
       </section>
       {% endif %}
+
+      {% if current_role != 'Learner' and not has_teacher_subjects %}
+      <section class="panel">
+        <p>
+          No subjects are assigned to your account yet. You can still use the dashboard, but subject-specific pages will stay empty until an administrator assigns one.
+        </p>
+      </section>
+      {% endif %}
+
+      <section class="panel dashboard-hero">
+        <div>
+          <p class="section-kicker">
+            {% if current_role == 'Learner' %}Learner Dashboard{% else %}Teacher Dashboard{% endif %}
+          </p>
+          <h2>
+            {% if current_role == 'Learner' %}
+            Welcome{% if learner_profile %}, {{ learner_profile.full_name }}{% endif %}
+            {% else %}
+            Teacher Workspace
+            {% endif %}
+          </h2>
+          <p>
+            {% if current_role == 'Learner' %}
+            Review your assessment feedback and progress summary here.
+            {% else %}
+            Manage learner records, competencies, tasks, results, and reports from one place.
+            {% endif %}
+          </p>
+        </div>
+        <div class="quick-actions">
+          {% if current_role == 'Learner' %}
+          <a class="btn" href="{% url 'feedback_view' %}">View My Feedback</a>
+          {% else %}
+          <a class="btn" href="{% url 'learner_list' %}">Learners</a>
+          <a class="btn" href="{% url 'competency_list' %}">Competencies</a>
+          <a class="btn" href="{% url 'task_list' %}">Tasks</a>
+          <a class="btn" href="{% url 'result_list' %}">Results</a>
+          <a class="btn btn-secondary" href="{% url 'report_view' %}">Reports</a>
+          {% if show_subject_switch %}
+          <a class="btn btn-secondary" href="{% url 'subject_select' %}">Select Subject</a>
+          {% endif %}
+          {% endif %}
+        </div>
+      </section>
+
       <section class="grid-cards">
         <article class="card">
-          <h3>Learners</h3>
+          <h3>{% if current_role == 'Learner' %}My Records{% else %}Total Learners{% endif %}</h3>
           <p>{{ learner_count }}</p>
         </article>
         <article class="card">
@@ -54,13 +99,13 @@
           <p>{{ result_count }}</p>
         </article>
         <article class="card">
-          <h3>Average Score</h3>
+          <h3>{% if current_role == 'Learner' %}My Average Score{% else %}Average Score{% endif %}</h3>
           <p>{{ overall_average }}</p>
         </article>
       </section>
 
       <section class="panel">
-        <h2>Average Score by Competency</h2>
+        <h2>{% if current_role == 'Learner' %}My Average Score by Competency{% else %}Average Score by Competency{% endif %}</h2>
         {{ competency_data|json_script:'competency-data' }}
         <canvas id="competencyChart"></canvas>
       </section>

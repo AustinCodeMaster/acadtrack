@@ -443,6 +443,30 @@ body.auth-page {
     margin-bottom: 1rem;
 }
 
+.dashboard-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.dashboard-hero h2 {
+    margin: 0.1rem 0 0.4rem;
+}
+
+.dashboard-hero p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 64ch;
+}
+
+.quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
 .card {
     background: var(--panel);
     border-radius: 16px;
@@ -598,6 +622,14 @@ a:hover {
     .app-main {
         margin-left: 0;
         padding: 1rem;
+    }
+
+    .dashboard-hero {
+        flex-direction: column;
+    }
+
+    .quick-actions {
+        justify-content: flex-start;
     }
 
     .panel,

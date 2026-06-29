@@ -101,26 +101,39 @@ def dashboard(request):
 	if _is_admin(request.user):
 		return redirect('admin_dashboard')
 
-	subject_required = _require_teacher_subject(request)
-	if subject_required:
-		return subject_required
-
+	current_role = _role_for(request.user)
 	active_subject = _active_subject_for_request(request)
+	teacher_subjects = _teacher_subjects(request.user)
 	competency_queryset = Competency.objects.all()
 	task_queryset = AssessmentTask.objects.all()
 	result_queryset = AssessmentResult.objects.all()
 	learner_queryset = LearnerProfile.objects.all()
+	learner_profile = None
+	if current_role == UserAccount.ROLE_LEARNER:
+		learner_profile = LearnerProfile.objects.filter(user_account=request.user.account).first()
+		if learner_profile:
+			result_queryset = result_queryset.filter(learner=learner_profile)
 	if active_subject:
 		task_queryset = task_queryset.filter(subject=active_subject)
 		result_queryset = result_queryset.filter(task__subject=active_subject)
 
-	learner_count = learner_queryset.count()
+	learner_count = learner_queryset.count() if current_role != UserAccount.ROLE_LEARNER else (1 if learner_profile else 0)
 	competency_count = competency_queryset.count()
 	task_count = task_queryset.count()
 	result_count = result_queryset.count()
 	overall_average = result_queryset.aggregate(avg=Avg('score'))['avg'] or 0
 
-	if active_subject:
+	if current_role == UserAccount.ROLE_LEARNER:
+		competency_data = list(
+			Competency.objects
+			.filter(tasks__results__learner=learner_profile, tasks__results__isnull=False)
+			.annotate(avg_score=Avg('tasks__results__score'))
+			.values('competency_code', 'avg_score')
+			.order_by('competency_code')
+			.distinct()
+		) if learner_profile else []
+		class_data = []
+	elif active_subject:
 		# Only show competencies that have been assessed in this subject,
 		# and calculate the average only from results for that subject's tasks.
 		competency_data = list(
@@ -160,6 +173,7 @@ def dashboard(request):
 		request,
 		'core/dashboard.html',
 		{
+			'current_role': current_role,
 			'learner_count': learner_count,
 			'competency_count': competency_count,
 			'task_count': task_count,
@@ -167,6 +181,9 @@ def dashboard(request):
 			'overall_average': round(overall_average, 2) if overall_average else 0,
 			'competency_data': competency_data,
 			'class_data': class_data,
+			'learner_profile': learner_profile,
+			'teacher_subjects': teacher_subjects,
+			'has_teacher_subjects': bool(teacher_subjects),
 		},
 	)
 
