@@ -1,0 +1,38 @@
+{% extends 'core/base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<section class="panel admin-hero">
+  <div>
+    <p class="section-kicker">System Administration</p>
+    <h2>Admin Dashboard</h2>
+    <p>Manage who can access the system and keep accounts active or inactive.</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{% url 'user_list' %}">Manage User Accounts</a>
+    <a class="btn btn-secondary" href="{% url 'user_create' %}">Create User Account</a>
+  </div>
+</section>
+
+<section class="grid-cards">
+  <article class="card">
+    <h3>Total Users</h3>
+    <p>{{ user_count }}</p>
+  </article>
+  <article class="card">
+    <h3>Active</h3>
+    <p>{{ active_user_count }}</p>
+  </article>
+  <article class="card">
+    <h3>Inactive</h3>
+    <p>{{ inactive_user_count }}</p>
+  </article>
+  <article class="card">
+    <h3>Teachers</h3>
+    <p>{{ teacher_count }}</p>
+  </article>
+  <article class="card">
+    <h3>Learners</h3>
+    <p>{{ learner_count }}</p>
+  </article>
+</section>
+{% endblock %}

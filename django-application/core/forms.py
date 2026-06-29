@@ -5,7 +5,26 @@ from django.contrib.auth.models import User
 from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, Subject, UserAccount
 
 
+ACCOUNT_ROLE_CHOICES = [
+    (UserAccount.ROLE_ADMINISTRATOR, 'Administrator'),
+    (UserAccount.ROLE_TEACHER, 'Teacher'),
+    (UserAccount.ROLE_LEARNER, 'Learner'),
+]
+
+
 class AccountAuthenticationForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].label = 'Email address'
+        self.fields['username'].widget = forms.EmailInput(attrs={
+            'autocomplete': 'email',
+            'placeholder': 'you@example.com',
+        })
+        self.fields['password'].widget = forms.PasswordInput(attrs={
+            'autocomplete': 'current-password',
+            'placeholder': 'Enter your password',
+        })
+
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
         if user.is_superuser:
@@ -39,78 +58,85 @@ class SubjectForm(forms.ModelForm):
 
 
 class UserAccountCreateForm(forms.Form):
-    username = forms.CharField(max_length=150)
-    password = forms.CharField(widget=forms.PasswordInput)
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+    password = forms.CharField(
+        required=True,
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    confirm_password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
     full_name = forms.CharField(max_length=100)
-    email = forms.EmailField()
-    role = forms.ChoiceField(choices=UserAccount.ROLE_CHOICES)
-    status = forms.ChoiceField(choices=UserAccount.STATUS_CHOICES)
-    subjects = forms.ModelMultipleChoiceField(
-        queryset=Subject.objects.all(),
-        required=False,
-        help_text='Assign one or more subjects for teacher accounts.',
+    role = forms.ChoiceField(choices=ACCOUNT_ROLE_CHOICES)
+    status = forms.ChoiceField(
+        choices=UserAccount.STATUS_CHOICES,
+        initial=UserAccount.STATUS_ACTIVE,
     )
 
-    def clean_username(self):
-        username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
-            raise forms.ValidationError('Username already exists.')
-        return username
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('This email address is already in use.')
+        return email
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        if len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long.')
+        return password
 
     def clean(self):
         cleaned_data = super().clean()
-        role = cleaned_data.get('role')
-        subjects = cleaned_data.get('subjects')
-        if role == UserAccount.ROLE_TEACHER and not subjects:
-            self.add_error('subjects', 'Select at least one subject for a teacher account.')
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+        if password and confirm_password and password != confirm_password:
+            self.add_error('confirm_password', 'Password and confirm password do not match.')
         return cleaned_data
 
     def save(self):
         full_name = self.cleaned_data['full_name'].strip()
         first_name, _, last_name = full_name.partition(' ')
+        email = self.cleaned_data['email']
+        role = self.cleaned_data['role']
+        is_active = self.cleaned_data['status'] == UserAccount.STATUS_ACTIVE
+        is_admin = role == UserAccount.ROLE_ADMINISTRATOR
+        is_teacher = role == UserAccount.ROLE_TEACHER
+
         user = User.objects.create_user(
-            username=self.cleaned_data['username'],
+            username=email,
             password=self.cleaned_data['password'],
             first_name=first_name,
             last_name=last_name,
-            email=self.cleaned_data['email'],
-            is_active=self.cleaned_data['status'] == UserAccount.STATUS_ACTIVE,
+            email=email,
+            is_active=is_active,
+            is_staff=is_admin or is_teacher,
+            is_superuser=False,
         )
         account = UserAccount.objects.create(
             user=user,
-            role=self.cleaned_data['role'],
+            role=role,
             status=self.cleaned_data['status'],
         )
-        if self.cleaned_data['role'] == UserAccount.ROLE_TEACHER:
-            account.subjects.set(self.cleaned_data['subjects'])
         return user
 
 
 class UserAccountUpdateForm(forms.Form):
     full_name = forms.CharField(max_length=100)
     email = forms.EmailField()
-    role = forms.ChoiceField(choices=UserAccount.ROLE_CHOICES)
+    role = forms.ChoiceField(choices=ACCOUNT_ROLE_CHOICES)
     status = forms.ChoiceField(choices=UserAccount.STATUS_CHOICES)
-    subjects = forms.ModelMultipleChoiceField(
-        queryset=Subject.objects.all(),
-        required=False,
-        help_text='Assign one or more subjects for teacher accounts.',
-    )
 
     def __init__(self, *args, user_obj=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user_obj = user_obj
-        account = UserAccount.objects.filter(user=self.user_obj).first()
-        if account and account.role == UserAccount.ROLE_TEACHER:
-            self.fields['subjects'].initial = account.subjects.all()
 
     def clean(self):
-        cleaned_data = super().clean()
-        role = cleaned_data.get('role')
-        subjects = cleaned_data.get('subjects')
-        if role == UserAccount.ROLE_TEACHER and not subjects:
-            self.add_error('subjects', 'Select at least one subject for a teacher account.')
-        return cleaned_data
+        return super().clean()
 
     def save(self):
         full_name = self.cleaned_data['full_name'].strip()
@@ -134,10 +160,6 @@ class UserAccountUpdateForm(forms.Form):
         account.role = self.cleaned_data['role']
         account.status = self.cleaned_data['status']
         account.save()
-        if self.cleaned_data['role'] == UserAccount.ROLE_TEACHER:
-            account.subjects.set(self.cleaned_data['subjects'])
-        else:
-            account.subjects.clear()
         return self.user_obj
 
 

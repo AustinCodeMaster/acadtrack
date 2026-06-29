@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.db.models import Avg, Count, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from .forms import (
 	AssessmentResultForm,
@@ -97,6 +98,8 @@ def dashboard(request):
 	access_denied = _deny_if_not(_is_teacher_or_admin(request.user) or _role_for(request.user) == UserAccount.ROLE_LEARNER)
 	if access_denied:
 		return access_denied
+	if _is_admin(request.user):
+		return redirect('admin_dashboard')
 
 	subject_required = _require_teacher_subject(request)
 	if subject_required:
@@ -169,17 +172,61 @@ def dashboard(request):
 
 
 @login_required
+def admin_dashboard(request):
+	access_denied = _deny_if_not(_is_admin(request.user))
+	if access_denied:
+		return access_denied
+
+	user_count = User.objects.count()
+	active_user_count = User.objects.filter(is_active=True).count()
+	inactive_user_count = User.objects.filter(is_active=False).count()
+	teacher_count = UserAccount.objects.filter(role=UserAccount.ROLE_TEACHER).count()
+	learner_count = UserAccount.objects.filter(role=UserAccount.ROLE_LEARNER).count()
+
+	return render(
+		request,
+		'core/admin_dashboard.html',
+		{
+			'user_count': user_count,
+			'active_user_count': active_user_count,
+			'inactive_user_count': inactive_user_count,
+			'teacher_count': teacher_count,
+			'learner_count': learner_count,
+		},
+	)
+
+
+@login_required
 def user_list(request):
 	access_denied = _deny_if_not(_is_admin(request.user))
 	if access_denied:
 		return access_denied
-	users = User.objects.all().order_by('username')
+	query = request.GET.get('q', '').strip()
+	users = User.objects.filter(is_superuser=False, account__role__in=[
+		UserAccount.ROLE_ADMINISTRATOR,
+		UserAccount.ROLE_TEACHER,
+		UserAccount.ROLE_LEARNER,
+	])
+	if query:
+		users = users.filter(
+			Q(first_name__icontains=query)
+			| Q(last_name__icontains=query)
+			| Q(email__icontains=query)
+		).distinct()
+	users = users.order_by('username').select_related('account')
 	user_rows = []
 	for user_obj in users:
 		account = _ensure_account(user_obj)
-		subjects = ', '.join(account.subjects.values_list('subject_name', flat=True))
-		user_rows.append({'user_obj': user_obj, 'role': account.role, 'status': account.status, 'subjects': subjects})
-	return render(request, 'core/user_list.html', {'user_rows': user_rows})
+		user_rows.append({'user_obj': user_obj, 'role': account.role, 'status': account.status})
+	return render(request, 'core/user_list.html', {'user_rows': user_rows, 'query': query})
+
+
+def _require_user_search_query(request):
+	query = request.GET.get('q', '').strip()
+	if not query:
+		messages.error(request, 'Search for a user before updating or deactivating the account.')
+		return None, redirect('user_list')
+	return query, None
 
 
 @login_required
@@ -205,7 +252,14 @@ def user_update(request, user_id):
 	if access_denied:
 		return access_denied
 
+	query, redirect_response = _require_user_search_query(request)
+	if redirect_response:
+		return redirect_response
+
 	user_obj = get_object_or_404(User, pk=user_id)
+	if user_obj.is_superuser:
+		messages.error(request, 'Administrator accounts cannot be edited from this screen.')
+		return redirect(f"{reverse('user_list')}?q={query}")
 	account = _ensure_account(user_obj)
 	initial = {
 		'full_name': f'{user_obj.first_name} {user_obj.last_name}'.strip() or user_obj.username,
@@ -218,24 +272,35 @@ def user_update(request, user_id):
 		if form.is_valid():
 			form.save()
 			messages.success(request, 'User account updated successfully.')
-			return redirect('user_list')
+			return redirect(f"{reverse('user_list')}?q={query}")
 	else:
 		form = UserAccountUpdateForm(initial=initial, user_obj=user_obj)
 	return render(request, 'core/form.html', {'form': form, 'title': 'Update User Account'})
 
 
 @login_required
-def user_delete(request, user_id):
+def user_deactivate(request, user_id):
 	access_denied = _deny_if_not(_is_admin(request.user))
 	if access_denied:
 		return access_denied
 
+	query, redirect_response = _require_user_search_query(request)
+	if redirect_response:
+		return redirect_response
+
 	user_obj = get_object_or_404(User, pk=user_id)
+	if user_obj.is_superuser:
+		messages.error(request, 'Administrator accounts cannot be deactivated from this screen.')
+		return redirect(f"{reverse('user_list')}?q={query}")
+	account = _ensure_account(user_obj)
 	if request.method == 'POST':
-		user_obj.delete()
-		messages.success(request, 'User account deleted successfully.')
-		return redirect('user_list')
-	return render(request, 'core/confirm_delete.html', {'title': 'Delete User Account', 'object': user_obj})
+		user_obj.is_active = False
+		user_obj.save(update_fields=['is_active'])
+		account.status = UserAccount.STATUS_INACTIVE
+		account.save(update_fields=['status'])
+		messages.success(request, 'User account deactivated successfully.')
+		return redirect(f"{reverse('user_list')}?q={query}")
+	return render(request, 'core/confirm_delete.html', {'title': 'Deactivate User Account', 'object': user_obj})
 
 
 @login_required

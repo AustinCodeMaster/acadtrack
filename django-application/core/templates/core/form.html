@@ -1,52 +1,53 @@
-{% load static role_tags %}
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ title }}</title>
-    <link rel="stylesheet" href="{% static 'core/style.css' %}" />
-  </head>
-  <body>
-    <header class="topbar">
-      <h1>Academic Tracking Application</h1>
-      <nav>
-        <a href="{% url 'dashboard' %}">Dashboard</a>
-        <a href="{% url 'learner_list' %}">Learners</a>
-        <a href="{% url 'competency_list' %}">Competencies</a>
-        <a href="{% url 'task_list' %}">Tasks</a>
-        <a href="{% url 'result_list' %}">Results</a>
-        <a href="{% url 'report_view' %}">Reports</a>
-        <a href="{% url 'feedback_view' %}">Feedback</a>
-        {% if show_subject_switch %}
-        <a href="{% url 'subject_select' %}">Select Subject</a>
-        {% endif %} {% if user|can_manage_users %}
-        <a href="{% url 'subject_list' %}">Subjects</a>
-        <a href="{% url 'user_list' %}">Users</a>
-        {% endif %}
-      </nav>
-    </header>
-
-    <main class="container">
-      {% if active_subject %}
-      <section class="panel">
-        <p>
-          Active subject: <strong>{{ active_subject.subject_name }}</strong>
-        </p>
-      </section>
+{% extends 'core/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="panel narrow form-shell">
+  <div class="panel-header form-header">
+    <div>
+      {% if title == 'Create User Account' or title == 'Update User Account' %}
+      <p class="section-kicker">Admin Control</p>
+      {% else %}
+      <p class="section-kicker">Data Entry</p>
       {% endif %}
-      <section class="panel narrow">
-        <h2>{{ title }}</h2>
-        <form method="post">
-          {% csrf_token %} {{ form.as_p }}
-          <div class="actions">
-            <button type="submit" class="btn">Save</button>
-            <a href="javascript:history.back()" class="btn btn-secondary"
-              >Cancel</a
-            >
-          </div>
-        </form>
-      </section>
-    </main>
-  </body>
-</html>
+      <h2>{{ title }}</h2>
+      {% if title == 'Create User Account' %}
+      <p>Create a Teacher or Learner account, then assign subjects when needed.</p>
+      {% elif title == 'Update User Account' %}
+      <p>Update the selected user’s role, status, and profile information.</p>
+      {% else %}
+      <p>Complete the form below and save your changes.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" class="form-stack">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="message error">
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <div class="form-grid">
+      {% for field in form.visible_fields %}
+      <div class="form-field {% if field.name == 'subjects' or field.field.widget.input_type == 'textarea' %}form-field--full{% endif %}">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}
+        <div class="field-help">{{ field.help_text }}</div>
+        {% endif %}
+        {% if field.errors %}
+        <div class="field-error">{{ field.errors }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="actions form-actions">
+      <button type="submit" class="btn">Save</button>
+      <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

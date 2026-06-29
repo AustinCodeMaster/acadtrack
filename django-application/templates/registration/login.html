@@ -7,15 +7,56 @@
     <title>Login</title>
     <link rel="stylesheet" href="{% static 'core/style.css' %}" />
   </head>
-  <body>
-    <main class="container">
-      <section class="panel narrow">
-        <h2>Login</h2>
-        <p>Use your username and password to continue.</p>
-        <form method="post">
-          {% csrf_token %} {{ form.as_p }}
-          <div class="actions">
-            <button type="submit" class="btn">Login</button>
+  <body class="auth-page">
+    <main class="auth-shell">
+      <section class="auth-card panel">
+        <div class="auth-card__header">
+          <p class="auth-kicker">Academic Tracking</p>
+          <h1>Academic Tracking Application</h1>
+          <p class="auth-copy">
+            Transparent CBC competency assessment platform
+          </p>
+        </div>
+
+        <div class="auth-tabs" aria-hidden="true">
+          <span class="auth-tab is-active">Log In</span>
+          <span class="auth-tab">Create Account</span>
+        </div>
+
+        <h2 class="auth-title">Log In</h2>
+        <p class="auth-intro">Use your email address and password to continue.</p>
+
+        {% if form.non_field_errors %}
+        <div class="message error">
+          {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="auth-form" novalidate>
+          {% csrf_token %}
+          <div class="form-field">
+            <label for="{{ form.username.id_for_label }}">Email address</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+            <div class="field-error">{{ form.username.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="form-field">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            {{ form.password }}
+            {% if form.password.errors %}
+            <div class="field-error">{{ form.password.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="auth-meta">
+            <span>Secure sign in for staff and learners</span>
+            <a href="#" aria-disabled="true" tabindex="-1">Forgot password?</a>
+          </div>
+
+          <div class="actions auth-actions">
+            <button type="submit" class="btn auth-button">Login</button>
           </div>
         </form>
       </section>

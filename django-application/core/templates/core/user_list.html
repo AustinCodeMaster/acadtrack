@@ -1,79 +1,67 @@
-{% load static role_tags %}
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Accounts</title>
-    <link rel="stylesheet" href="{% static 'core/style.css' %}" />
-  </head>
-  <body>
-    <header class="topbar">
-      <h1>Academic Tracking Application</h1>
-      <nav>
-        <a href="{% url 'dashboard' %}">Dashboard</a>
-        <a href="{% url 'learner_list' %}">Learners</a>
-        <a href="{% url 'competency_list' %}">Competencies</a>
-        <a href="{% url 'task_list' %}">Tasks</a>
-        <a href="{% url 'result_list' %}">Results</a>
-        <a href="{% url 'report_view' %}">Reports</a>
-        <a href="{% url 'feedback_view' %}">Feedback</a>
-        {% if show_subject_switch %}
-        <a href="{% url 'subject_select' %}">Select Subject</a>
-        {% endif %} {% if user|can_manage_users %}
-        <a href="{% url 'subject_list' %}">Subjects</a>
-        <a href="{% url 'user_list' %}">Users</a>
-        {% endif %}
-      </nav>
-    </header>
+{% extends 'core/base.html' %}
+{% block title %}User Accounts{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="section-kicker">Admin Control</p>
+      <h2>User Accounts</h2>
+    </div>
+    <a class="btn" href="{% url 'user_create' %}">Create User</a>
+  </div>
 
-    <main class="container">
-      {% if active_subject %}
-      <section class="panel">
-        <p>
-          Active subject: <strong>{{ active_subject.subject_name }}</strong>
-        </p>
-      </section>
-      {% endif %}
-      <section class="panel">
-        <h2>User Accounts</h2>
-        <a class="btn" href="{% url 'user_create' %}">Create User</a>
-        <table>
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Full Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Subjects</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in user_rows %}
-            <tr>
-              <td>{{ row.user_obj.username }}</td>
-              <td>
-                {{ row.user_obj.first_name }} {{ row.user_obj.last_name }}
-              </td>
-              <td>{{ row.user_obj.email }}</td>
-              <td>{{ row.role|default:'N/A' }}</td>
-              <td>{{ row.subjects|default:'-' }}</td>
-              <td>{{ row.status|default:'N/A' }}</td>
-              <td>
-                <a href="{% url 'user_update' row.user_obj.id %}">Edit</a> |
-                <a href="{% url 'user_delete' row.user_obj.id %}">Delete</a>
-              </td>
-            </tr>
-            {% empty %}
-            <tr>
-              <td colspan="7">No users found.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </section>
-    </main>
-  </body>
-</html>
+  <form method="get" class="filters admin-search">
+    <div class="search-field">
+      <label for="q">Search users</label>
+      <input id="q" name="q" value="{{ query }}" placeholder="Search by name or email" />
+    </div>
+    <button class="btn" type="submit">Search</button>
+    <a href="{% url 'user_list' %}" class="btn btn-secondary">Clear</a>
+  </form>
+
+  {% if not query %}
+  <div class="message info">
+    Search first to update or deactivate an account.
+  </div>
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in user_rows %}
+      <tr>
+        <td>{{ row.user_obj.first_name }} {{ row.user_obj.last_name }}</td>
+        <td>{{ row.user_obj.email }}</td>
+        <td>{{ row.role|default:'N/A' }}</td>
+        <td>{{ row.status|default:'N/A' }}</td>
+        <td>
+          {% if query %}
+          <div class="action-group">
+            <a class="action-pill action-pill--edit" href="{% url 'user_update' row.user_obj.id %}?q={{ query|urlencode }}">Edit</a>
+            <a class="action-pill action-pill--deactivate" href="{% url 'user_deactivate' row.user_obj.id %}?q={{ query|urlencode }}">Deactivate</a>
+          </div>
+          {% else %}
+          <div class="action-group">
+            <span class="action-pill action-pill--disabled">Edit</span>
+            <span class="action-pill action-pill--disabled">Deactivate</span>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5">No users found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
