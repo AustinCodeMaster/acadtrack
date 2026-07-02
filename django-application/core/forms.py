@@ -11,6 +11,13 @@ ACCOUNT_ROLE_CHOICES = [
     (UserAccount.ROLE_LEARNER, 'Learner'),
 ]
 
+CBC_RATING_CHOICES = [
+    ('Exceeding Expectations', 'Exceeding Expectations'),
+    ('Meeting Expectations', 'Meeting Expectations'),
+    ('Approaching Expectations', 'Approaching Expectations'),
+    ('Below Expectations', 'Below Expectations'),
+]
+
 
 class AccountAuthenticationForm(AuthenticationForm):
     def __init__(self, *args, **kwargs):
@@ -304,6 +311,7 @@ class AssessmentResultForm(forms.ModelForm):
             'mastery_status': 'Mastery Status',
         }
         widgets = {
+            'cbc_rating': forms.Select(choices=CBC_RATING_CHOICES),
             'feedback': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Teacher feedback'}),
         }
 
@@ -320,7 +328,27 @@ class AssessmentResultForm(forms.ModelForm):
         return cleaned_data
 
     def clean_cbc_rating(self):
-        cbc_rating = self.cleaned_data['cbc_rating'].strip()
+        cbc_rating = self.cleaned_data['cbc_rating']
+        if not cbc_rating:
+            raise forms.ValidationError('CBC Rating is required.')
+        return cbc_rating
+
+    def clean_feedback(self):
+        feedback = self.cleaned_data['feedback'].strip()
+        if not feedback:
+            raise forms.ValidationError('Feedback is required.')
+        return feedback
+
+
+class BulkAssessmentResultEntryForm(forms.Form):
+    task_id = forms.IntegerField(widget=forms.HiddenInput())
+    score = forms.DecimalField(max_digits=5, decimal_places=2, min_value=0, max_value=100)
+    cbc_rating = forms.ChoiceField(choices=CBC_RATING_CHOICES)
+    mastery_status = forms.ChoiceField(choices=AssessmentResult.MASTERY_STATUS_CHOICES)
+    feedback = forms.CharField(widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Teacher feedback'}))
+
+    def clean_cbc_rating(self):
+        cbc_rating = self.cleaned_data['cbc_rating']
         if not cbc_rating:
             raise forms.ValidationError('CBC Rating is required.')
         return cbc_rating

@@ -200,25 +200,72 @@
     box-shadow: 0 14px 24px rgba(47, 125, 246, 0.2);
   }
 
-  .results-table {
+  .results-groups {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .results-group {
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    border: 1px solid #e3ebf7;
+    border-radius: 22px;
+    box-shadow: 0 12px 28px rgba(79, 114, 182, 0.08);
+    overflow: hidden;
+  }
+
+  .results-group__header {
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid #e6edf7;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  }
+
+  .results-group__header h3 {
+    margin: 0;
+    color: #10264c;
+    font-size: 1.15rem;
+  }
+
+  .results-group__header p {
+    margin: 0.25rem 0 0;
+    color: #5d739d;
+    font-size: 0.9rem;
+  }
+
+  .results-group__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 14px;
+    background: rgba(47, 125, 246, 0.1);
+    color: #1657d6;
+    font-weight: 800;
+  }
+
+  .results-group__table-wrap {
     overflow-x: auto;
   }
 
-  .results-table table {
+  .results-group__table {
     width: 100%;
-    min-width: 1100px;
+    min-width: 960px;
     border-collapse: collapse;
   }
 
-  .results-table th,
-  .results-table td {
+  .results-group__table th,
+  .results-group__table td {
     padding: 0.85rem 0.9rem;
     border-bottom: 1px solid #e8edf2;
     text-align: left;
     vertical-align: top;
   }
 
-  .results-table th {
+  .results-group__table th {
     background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
     color: #20385f;
     text-transform: uppercase;
@@ -226,11 +273,11 @@
     font-size: 0.75rem;
   }
 
-  .results-table tbody tr:nth-child(even) td {
+  .results-group__table tbody tr:nth-child(even) td {
     background: #fbfdff;
   }
 
-  .results-table tbody tr:hover td {
+  .results-group__table tbody tr:hover td {
     background: #f2f7ff;
   }
 
@@ -293,7 +340,8 @@
       <h2>Manage Assessment Results</h2>
       <p>Record and review learner performance for each task, with scores, ratings, mastery status, and feedback in one place.</p>
       <div class="results-hero__actions">
-        <a class="results-create-btn" href="{% url 'result_create' %}">+ Record Result</a>
+        <a class="results-create-btn" href="{% url 'result_bulk_entry' %}">+ Record Term Results</a>
+        <a class="results-btn-link" href="{% url 'result_create' %}">Single Result</a>
       </div>
     </div>
     <div class="results-hero__art" aria-hidden="true">
@@ -317,40 +365,54 @@
     </form>
   </section>
 
-  <section class="results-table">
-    <table>
-      <thead>
-        <tr>
-          <th>Learner</th>
-          <th>Task</th>
-          <th>Score</th>
-          <th>CBC Rating</th>
-          <th>Mastery Status</th>
-          <th>Feedback</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for result in results %}
-        <tr>
-          <td>{{ result.learner.full_name }}</td>
-          <td>{{ result.task.task_name }}</td>
-          <td>{{ result.score }}</td>
-          <td>{{ result.cbc_rating }}</td>
-          <td>{{ result.mastery_status }}</td>
-          <td>{{ result.feedback|default:'-' }}</td>
-          <td>
-            <a class="result-action result-action--edit" href="{% url 'result_update' result.id %}">Edit</a>
-            <a class="result-action result-action--delete" href="{% url 'result_delete' result.id %}">Delete</a>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="results-empty">No assessment results found.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <section class="results-groups">
+    {% regroup results by learner as learner_groups %}
+    {% for group in learner_groups %}
+    <article class="results-group">
+      <header class="results-group__header">
+        <div>
+          <h3>{{ group.grouper.full_name }}</h3>
+          <p>Admission number {{ group.grouper.admission_number }} • {{ group.list|length }} task result{{ group.list|length|pluralize }}</p>
+        </div>
+        <div class="results-group__count">{{ group.list|length }}</div>
+      </header>
+      <div class="results-group__table-wrap">
+        <table class="results-group__table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Competency</th>
+              <th>Score</th>
+              <th>CBC Rating</th>
+              <th>Mastery Status</th>
+              <th>Feedback</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in group.list %}
+            <tr>
+              <td>{{ result.task.task_name }}</td>
+              <td>{{ result.task.competency.competency_name }}</td>
+              <td>{{ result.score }}</td>
+              <td>{{ result.cbc_rating }}</td>
+              <td>{{ result.mastery_status }}</td>
+              <td>{{ result.feedback|default:'-' }}</td>
+              <td>
+                <a class="result-action result-action--edit" href="{% url 'result_update' result.id %}">Edit</a>
+                <a class="result-action result-action--delete" href="{% url 'result_delete' result.id %}">Delete</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+    {% empty %}
+    <div class="results-group">
+      <div class="results-empty">No assessment results found.</div>
+    </div>
+    {% endfor %}
   </section>
 </section>
 {% endblock %}

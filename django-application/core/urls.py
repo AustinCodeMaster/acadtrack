@@ -33,6 +33,7 @@ urlpatterns = [
     path('tasks/<int:pk>/delete/', views.task_delete, name='task_delete'),
 
     path('results/', views.result_list, name='result_list'),
+    path('results/bulk-entry/', views.result_bulk_entry, name='result_bulk_entry'),
     path('results/create/', views.result_create, name='result_create'),
     path('results/<int:pk>/edit/', views.result_update, name='result_update'),
     path('results/<int:pk>/delete/', views.result_delete, name='result_delete'),

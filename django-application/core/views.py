@@ -1,12 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Avg, Count, Max, Min, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.forms import formset_factory
 from django.urls import reverse
 
 from .forms import (
+	BulkAssessmentResultEntryForm,
 	AssessmentResultForm,
 	AssessmentTaskForm,
 	CompetencyForm,
@@ -598,7 +601,8 @@ def result_list(request):
 		results = results.filter(Q(learner__full_name__icontains=query) | Q(task__task_name__icontains=query))
 	if active_subject:
 		results = results.filter(task__subject=active_subject)
-	return render(request, 'core/result_list.html', {'results': results.order_by('-created_at'), 'query': query})
+	results = results.order_by('learner__full_name', 'task__task_name', '-created_at')
+	return render(request, 'core/result_list.html', {'results': results, 'query': query})
 
 
 @login_required
@@ -662,6 +666,89 @@ def result_delete(request, pk):
 
 
 @login_required
+def result_bulk_entry(request):
+	access_denied = _deny_if_not(_is_teacher_or_admin(request.user))
+	if access_denied:
+		return access_denied
+
+	active_subject = _active_subject_for_request(request)
+	learners = LearnerProfile.objects.order_by('full_name')
+	competencies = Competency.objects.all().order_by('competency_code')
+	selected_learner_id = request.POST.get('learner') if request.method == 'POST' else request.GET.get('learner', '').strip()
+	selected_competency_id = request.POST.get('competency') if request.method == 'POST' else request.GET.get('competency', '').strip()
+	selected_learner = learners.filter(pk=selected_learner_id).first() if selected_learner_id else None
+	selected_competency = competencies.filter(pk=selected_competency_id).first() if selected_competency_id else None
+	tasks = AssessmentTask.objects.select_related('competency', 'subject').all()
+	if active_subject:
+		tasks = tasks.filter(subject=active_subject)
+	if selected_competency:
+		tasks = tasks.filter(competency=selected_competency)
+	tasks = tasks.order_by('task_name')
+	task_map = {task.id: task for task in tasks}
+	ResultEntryFormSet = formset_factory(BulkAssessmentResultEntryForm, extra=0)
+	formset = None
+	task_entries = []
+	if selected_learner and selected_competency:
+		initial = []
+		for task in tasks:
+			existing = AssessmentResult.objects.filter(learner=selected_learner, task=task).first()
+			initial.append({
+				'task_id': task.id,
+				'score': existing.score if existing else None,
+				'cbc_rating': existing.cbc_rating if existing else '',
+				'mastery_status': existing.mastery_status if existing else AssessmentResult.MASTERY_DEVELOPING,
+				'feedback': existing.feedback if existing else '',
+			})
+		if request.method == 'POST':
+			formset = ResultEntryFormSet(request.POST)
+			if formset.is_valid():
+				with transaction.atomic():
+					for form in formset:
+						cleaned = form.cleaned_data
+						task = task_map.get(cleaned['task_id'])
+						if not task:
+							continue
+						result, _ = AssessmentResult.objects.get_or_create(
+							learner=selected_learner,
+							task=task,
+							defaults={
+								'created_by': request.user,
+								'score': cleaned['score'],
+								'cbc_rating': cleaned['cbc_rating'],
+								'mastery_status': cleaned['mastery_status'],
+								'feedback': cleaned['feedback'],
+							},
+						)
+						result.created_by = request.user
+						result.score = cleaned['score']
+						result.cbc_rating = cleaned['cbc_rating']
+						result.mastery_status = cleaned['mastery_status']
+						result.feedback = cleaned['feedback']
+						result.save()
+			messages.success(request, 'All task results recorded successfully.')
+			return redirect('result_list')
+		else:
+			formset = ResultEntryFormSet(initial=initial)
+		task_entries = list(zip(tasks, formset.forms))
+
+	return render(
+		request,
+		'core/bulk_result_entry.html',
+		{
+			'learners': learners,
+			'competencies': competencies,
+			'selected_learner': selected_learner,
+			'selected_learner_id': selected_learner_id,
+			'selected_competency': selected_competency,
+			'selected_competency_id': selected_competency_id,
+			'tasks': tasks,
+			'formset': formset,
+			'task_entries': task_entries,
+		},
+	)
+
+
+@login_required
 def report_view(request):
 	access_denied = _deny_if_not(_is_teacher_or_admin(request.user))
 	if access_denied:
@@ -669,12 +756,12 @@ def report_view(request):
 
 	learner_filter = request.GET.get('learner', '').strip()
 	competency_filter = request.GET.get('competency', '').strip()
-	rating_filter = request.GET.get('rating', '').strip()
 	view_requested = request.GET.get('view_report') == '1'
 
 	learners = LearnerProfile.objects.order_by('full_name')
 	results = AssessmentResult.objects.none()
 	selected_learner = None
+	term_results = AssessmentResult.objects.none()
 	validation = {
 		'required_fields_ok': True,
 		'duplicate_ok': True,
@@ -686,14 +773,13 @@ def report_view(request):
 		selected_learner = learners.filter(pk=learner_filter).first()
 
 	if selected_learner:
-		results = AssessmentResult.objects.select_related('learner', 'task', 'task__competency', 'created_by').filter(learner=selected_learner)
+		term_results = AssessmentResult.objects.select_related('learner', 'task', 'task__competency', 'created_by').filter(learner=selected_learner)
+		results = term_results
 		if competency_filter:
 			results = results.filter(task__competency__id=competency_filter)
-		if rating_filter:
-			results = results.filter(cbc_rating=rating_filter)
 		results = results.order_by('task__task_name')
 
-		missing_required_results = results.filter(
+		missing_required_results = term_results.filter(
 			Q(score__isnull=True)
 			| Q(cbc_rating__isnull=True)
 			| Q(cbc_rating='')
@@ -701,7 +787,7 @@ def report_view(request):
 			| Q(mastery_status='')
 		)
 		duplicate_results = (
-			results.values('learner_id', 'task_id')
+			term_results.values('learner_id', 'task_id')
 			.annotate(total=Count('id'))
 			.filter(total__gt=1)
 		)
@@ -711,20 +797,42 @@ def report_view(request):
 		validation['required_fields_ok'] = validation['missing_count'] == 0
 		validation['duplicate_ok'] = validation['duplicate_count'] == 0
 
-	total_results = results.count()
-	score_summary = results.aggregate(avg=Avg('score'), highest=Max('score'), lowest=Min('score'))
-	average_score = score_summary['avg'] or 0
+	total_results = term_results.count()
+	score_summary = term_results.aggregate(avg=Avg('score'), highest=Max('score'), lowest=Min('score'))
+	term_average_score = score_summary['avg'] or 0
 	highest_score = score_summary['highest']
 	lowest_score = score_summary['lowest']
 
 	competencies = Competency.objects.all().order_by('competency_code')
-	rating_choices = (
-		AssessmentResult.objects.exclude(cbc_rating__isnull=True)
-		.exclude(cbc_rating='')
-		.values_list('cbc_rating', flat=True)
-		.distinct()
-		.order_by('cbc_rating')
-	)
+	rating_choices = []
+
+	competency_summary = []
+	rating_breakdown = []
+	if selected_learner:
+		used_competency_ids = term_results.values_list('task__competency_id', flat=True).distinct()
+		rating_choices = (
+			term_results.exclude(cbc_rating__isnull=True)
+			.exclude(cbc_rating='')
+			.values_list('cbc_rating', flat=True)
+			.distinct()
+			.order_by('cbc_rating')
+		)
+		for competency in competencies:
+			if competency.id not in used_competency_ids:
+				continue
+			competency_results = term_results.filter(task__competency=competency)
+			summary = competency_results.aggregate(avg=Avg('score'), total=Count('id'))
+			competency_summary.append({
+				'competency': competency,
+				'total_tasks': summary['total'] or 0,
+				'average_score': summary['avg'] or 0,
+			})
+
+		for rating in rating_choices:
+			rating_breakdown.append({
+				'rating': rating,
+				'count': term_results.filter(cbc_rating=rating).count(),
+			})
 
 	return render(
 		request,
@@ -735,15 +843,15 @@ def report_view(request):
 			'selected_learner': selected_learner,
 			'view_requested': view_requested,
 			'total_results': total_results,
-			'average_score': average_score,
+			'term_average_score': term_average_score,
 			'highest_score': highest_score,
 			'lowest_score': lowest_score,
 			'validation': validation,
 			'competencies': competencies,
 			'selected_learner_id': learner_filter,
 			'selected_competency': competency_filter,
-			'selected_rating': rating_filter,
-			'rating_choices': rating_choices,
+			'competency_summary': competency_summary,
+			'rating_breakdown': rating_breakdown,
 		},
 	)
 

@@ -133,6 +133,7 @@ class AssessmentResult(models.Model):
 		validators=[MinValueValidator(0), MaxValueValidator(100)],
 	)
 	cbc_rating = models.CharField(max_length=30)
+	assessment_date = models.DateField(default=timezone.localdate)
 	mastery_status = models.CharField(
 		max_length=50,
 		choices=MASTERY_STATUS_CHOICES,
