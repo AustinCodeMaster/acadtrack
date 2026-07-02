@@ -1,6 +1,303 @@
 {% extends 'core/base.html' %}
 {% block title %}Learners{% endblock %}
 {% block content %}
+<style>
+  .learners-page {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .learners-hero,
+  .learners-toolbar,
+  .learners-table {
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    border: 1px solid #e3ebf7;
+    border-radius: 22px;
+    box-shadow: 0 12px 28px rgba(79, 114, 182, 0.08);
+  }
+
+  .learners-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.7rem 1.8rem;
+  }
+
+  .learners-hero__copy {
+    max-width: 42rem;
+  }
+
+  .learners-hero__eyebrow {
+    margin: 0 0 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2f7df6;
+  }
+
+  .learners-hero__copy h2 {
+    margin: 0;
+    font-size: clamp(2rem, 3vw, 2.9rem);
+    line-height: 1.08;
+    color: #10264c;
+    letter-spacing: -0.03em;
+  }
+
+  .learners-hero__copy p {
+    margin: 0.8rem 0 0;
+    color: #5d739d;
+    line-height: 1.55;
+    max-width: 34rem;
+  }
+
+  .learners-hero__actions {
+    margin-top: 1.1rem;
+  }
+
+  .learners-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.74rem 1.1rem;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #1d4ed8 0%, #2f7df6 100%);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    box-shadow: 0 14px 24px rgba(47, 125, 246, 0.2);
+  }
+
+  .learners-hero__art {
+    position: relative;
+    flex: 0 0 300px;
+    min-height: 180px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(240, 246, 255, 0.95) 0%, rgba(225, 235, 250, 0.95) 100%);
+    overflow: hidden;
+  }
+
+  .learners-hero__art::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border-radius: 16px;
+    background: radial-gradient(circle at 80% 20%, rgba(47, 125, 246, 0.1), transparent 26%), radial-gradient(circle at 24% 74%, rgba(47, 125, 246, 0.08), transparent 30%);
+  }
+
+  .learners-art__shape {
+    position: absolute;
+    display: block;
+  }
+
+  .learners-art__shape--ring {
+    left: 34px;
+    top: 28px;
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    background: conic-gradient(#2f7df6 0 34%, #bdd0ff 34% 100%);
+    -webkit-mask: radial-gradient(circle, transparent 0 24px, #000 24px 34px, transparent 34px);
+            mask: radial-gradient(circle, transparent 0 24px, #000 24px 34px, transparent 34px);
+  }
+
+  .learners-art__shape--card {
+    left: 124px;
+    top: 18px;
+    width: 92px;
+    height: 122px;
+    border-radius: 16px;
+    border: 5px solid #6f8edd;
+    background: linear-gradient(180deg, #fff 0%, #f2f6ff 100%);
+    box-shadow: 0 12px 22px rgba(56, 94, 182, 0.12);
+  }
+
+  .learners-art__shape--panel {
+    left: 40px;
+    bottom: 26px;
+    width: 136px;
+    height: 76px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #eaf1ff 100%);
+    box-shadow: 0 12px 18px rgba(56, 94, 182, 0.08);
+  }
+
+  .learners-art__shape--accent {
+    right: 24px;
+    bottom: 28px;
+    width: 52px;
+    height: 64px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #78a2ff 0%, #5d8fff 100%);
+    box-shadow: 0 10px 16px rgba(56, 94, 182, 0.14);
+  }
+
+  .learners-toolbar {
+    padding: 1rem;
+  }
+
+  .learners-search {
+    display: flex;
+    gap: 0.75rem;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+
+  .learners-search__field {
+    flex: 1 1 320px;
+  }
+
+  .learners-search__field label {
+    display: block;
+    margin: 0 0 0.35rem;
+    color: #20385f;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .learners-search__field input {
+    width: 100%;
+    border: 1px solid #d8e4f5;
+    border-radius: 12px;
+    padding: 0.78rem 0.9rem;
+    background: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .learners-search__field input:focus {
+    outline: none;
+    border-color: #4f84f6;
+    box-shadow: 0 0 0 4px rgba(47, 125, 246, 0.12);
+  }
+
+  .learners-search__actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  .learners-btn,
+  .learners-btn-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid #d9e3f4;
+    background: #fff;
+    color: #20385f;
+  }
+
+  .learners-btn {
+    background: linear-gradient(90deg, #1d4ed8 0%, #2f7df6 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 14px 24px rgba(47, 125, 246, 0.2);
+  }
+
+  .learners-table {
+    overflow: hidden;
+  }
+
+  .learners-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .learners-table th,
+  .learners-table td {
+    padding: 0.85rem 0.9rem;
+    border-bottom: 1px solid #e8edf2;
+    text-align: left;
+  }
+
+  .learners-table th {
+    background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+    color: #20385f;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.75rem;
+  }
+
+  .learners-table tbody tr:nth-child(even) td {
+    background: #fbfdff;
+  }
+
+  .learners-table tbody tr:hover td {
+    background: #f2f7ff;
+  }
+
+  .learner-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 84px;
+    padding: 0.5rem 0.85rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+  }
+
+  .learner-action--edit {
+    background: rgba(34, 197, 94, 0.12);
+    color: #047857;
+    border: 1px solid rgba(34, 197, 94, 0.18);
+  }
+
+  .learner-action--delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.16);
+  }
+
+  .learners-empty {
+    padding: 1rem;
+    color: #5d739d;
+  }
+
+  @media (max-width: 980px) {
+    .learners-hero {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .learners-hero__art {
+      width: 100%;
+      flex-basis: auto;
+    }
+
+    .learners-search__actions {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .learners-hero,
+    .learners-toolbar {
+      padding: 1rem;
+    }
+
+    .learners-search__field,
+    .learners-search__actions,
+    .learners-btn,
+    .learners-btn-link {
+      width: 100%;
+    }
+
+    .learners-search__actions {
+      flex-direction: column;
+    }
+  }
+</style>
+<section class="learners-page">
 {% if active_subject %}
 <section class="panel">
   <p>
@@ -8,28 +305,42 @@
   </p>
 </section>
 {% endif %}
-<section class="panel">
-  <div class="panel-header form-header">
-    <div>
-      <p class="section-kicker">Teacher Learner Management</p>
-      <h2>Manage Learner Records</h2>
-      <p>Click Create to add new learner.</p>
+<section class="learners-hero">
+  <div class="learners-hero__copy">
+    <p class="learners-hero__eyebrow">Teacher Learner Management</p>
+    <h2>Manage Learner Records</h2>
+    <p>View, manage and organize learner records to support effective teaching and learning.</p>
+    <div class="learners-hero__actions">
+      <a class="learners-create-btn" href="{% url 'learner_create' %}">+ Create Learner</a>
     </div>
-    <a class="btn" href="{% url 'learner_create' %}">Create Learner</a>
   </div>
-  <form method="get" class="filters">
-    <div>
+  <div class="learners-hero__art" aria-hidden="true">
+    <span class="learners-art__shape learners-art__shape--ring"></span>
+    <span class="learners-art__shape learners-art__shape--card"></span>
+    <span class="learners-art__shape learners-art__shape--panel"></span>
+    <span class="learners-art__shape learners-art__shape--accent"></span>
+  </div>
+</section>
+
+<section class="learners-toolbar">
+  <form method="get" class="learners-search">
+    <div class="learners-search__field">
       <label for="q">Search</label>
       <input
         id="q"
         name="q"
         value="{{ query }}"
-        placeholder="Search by admission number or name"
+        placeholder="Search by admission number, name or class..."
       />
     </div>
-    <button type="submit" class="btn">Search</button>
-    <a class="btn btn-secondary" href="{% url 'learner_list' %}">Clear</a>
+    <div class="learners-search__actions">
+      <button type="submit" class="learners-btn">Search</button>
+      <a class="learners-btn-link" href="{% url 'learner_list' %}">Clear</a>
+    </div>
   </form>
+</section>
+
+<section class="learners-table">
   <table>
     <thead>
       <tr>
@@ -48,16 +359,17 @@
         <td>{{ learner.gender }}</td>
         <td>{{ learner.class_name }}</td>
         <td>
-          <a class="action-pill action-pill--edit" href="{% url 'learner_update' learner.id %}">Edit</a>
-          <a class="action-pill action-pill--deactivate" href="{% url 'learner_delete' learner.id %}">Delete</a>
+          <a class="learner-action learner-action--edit" href="{% url 'learner_update' learner.id %}">Edit</a>
+          <a class="learner-action learner-action--delete" href="{% url 'learner_delete' learner.id %}">Delete</a>
         </td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="5">No learners found.</td>
+        <td colspan="5" class="learners-empty">No learners found.</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+</section>
 </section>
 {% endblock %}

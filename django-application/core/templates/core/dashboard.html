@@ -10,8 +10,8 @@
 </section>
 {% endif %}
 
-<section class="panel dashboard-hero">
-  <div>
+<section class="panel dashboard-hero dashboard-hero--split">
+  <div class="dashboard-hero__copy">
     <p class="section-kicker">
       {% if current_role == 'Learner' %}Learner Dashboard{% else %}Teacher Dashboard{% endif %}
     </p>
@@ -19,30 +19,37 @@
       {% if current_role == 'Learner' %}
       Welcome{% if learner_profile %}, {{ learner_profile.full_name }}{% endif %}
       {% else %}
-      Teacher Workspace
+      Manage your CBC competency workflow
       {% endif %}
     </h2>
     <p>
       {% if current_role == 'Learner' %}
       Review your assessment feedback and progress summary here.
       {% else %}
-      Manage learner records, competencies, tasks, results, and reports from one place.
+      Track learners, competencies, tasks, results, and reports from one organized workspace.
       {% endif %}
     </p>
+    <div class="quick-actions">
+      {% if current_role == 'Learner' %}
+      <a class="btn" href="{% url 'feedback_view' %}">View My Feedback</a>
+      {% else %}
+      <a class="btn" href="{% url 'learner_list' %}">Manage Learners</a>
+      <a class="btn" href="{% url 'competency_list' %}">Competencies</a>
+      <a class="btn" href="{% url 'task_list' %}">Tasks</a>
+      <a class="btn" href="{% url 'result_list' %}">Results</a>
+      <a class="btn btn-secondary" href="{% url 'report_view' %}">Reports</a>
+      {% if show_subject_switch %}
+      <a class="btn btn-secondary" href="{% url 'subject_select' %}">Select Subject</a>
+      {% endif %}
+      {% endif %}
+    </div>
   </div>
-  <div class="quick-actions">
-    {% if current_role == 'Learner' %}
-    <a class="btn" href="{% url 'feedback_view' %}">View My Feedback</a>
-    {% else %}
-    <a class="btn" href="{% url 'learner_list' %}">Manage Learners</a>
-    <a class="btn" href="{% url 'competency_list' %}">Competencies</a>
-    <a class="btn" href="{% url 'task_list' %}">Tasks</a>
-    <a class="btn" href="{% url 'result_list' %}">Results</a>
-    <a class="btn btn-secondary" href="{% url 'report_view' %}">Reports</a>
-    {% if show_subject_switch %}
-    <a class="btn btn-secondary" href="{% url 'subject_select' %}">Select Subject</a>
-    {% endif %}
-    {% endif %}
+
+  <div class="dashboard-hero__art" aria-hidden="true">
+    <span class="dashboard-art__shape dashboard-art__shape--ring"></span>
+    <span class="dashboard-art__shape dashboard-art__shape--card"></span>
+    <span class="dashboard-art__shape dashboard-art__shape--panel"></span>
+    <span class="dashboard-art__shape dashboard-art__shape--accent"></span>
   </div>
 </section>
 

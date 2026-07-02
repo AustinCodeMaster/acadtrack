@@ -5,7 +5,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Academic Tracking{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'core/style.css' %}" />
+    <link rel="stylesheet" href="{% static 'core/style.css' %}?v=20260702a" />
+    <style>
+      /* Reduce excessive whitespace above main content across all pages */
+      .app-main { padding-top: 0.5rem !important; }
+      .container { padding-top: 0 !important; }
+      /* Remove default top margin from the first child inside the container */
+      .container > *:first-child { margin-top: 0; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
@@ -13,6 +20,12 @@
       {% if user.is_authenticated %}
       <aside class="sidebar">
         <div class="sidebar__brand">
+          <div class="sidebar__brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false" aria-hidden="true">
+              <path d="M24 6 6 14l18 8 18-8-18-8Z" fill="currentColor"></path>
+              <path d="M12 20v8c0 4.4 5.4 8 12 8s12-3.6 12-8v-8l-12 5.3L12 20Z" fill="currentColor" opacity="0.72"></path>
+            </svg>
+          </div>
           <h1>Academic Tracking Application</h1>
           <p>CBC Competency Assessment</p>
         </div>
@@ -21,19 +34,33 @@
           {% with role=user|user_role %}
           <div class="sidebar__group">
             <span class="sidebar__group-label">Main</span>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
+            <a class="sidebar__link sidebar__link--dashboard {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">
+              <span>Dashboard</span>
+            </a>
           </div>
 
           {% if role == 'Teacher' %}
           <div class="sidebar__group">
             <span class="sidebar__group-label">Teacher</span>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'learner_list' %}is-active{% endif %}" href="{% url 'learner_list' %}">Manage Learners</a>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'competency_list' %}is-active{% endif %}" href="{% url 'competency_list' %}">Competencies</a>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'task_list' %}is-active{% endif %}" href="{% url 'task_list' %}">Tasks</a>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'result_list' %}is-active{% endif %}" href="{% url 'result_list' %}">Results</a>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'report_view' %}is-active{% endif %}" href="{% url 'report_view' %}">Reports</a>
+            <a class="sidebar__link sidebar__link--learners {% if request.resolver_match.url_name == 'learner_list' %}is-active{% endif %}" href="{% url 'learner_list' %}">
+              <span>Manage Learners</span>
+            </a>
+            <a class="sidebar__link sidebar__link--competencies {% if request.resolver_match.url_name == 'competency_list' %}is-active{% endif %}" href="{% url 'competency_list' %}">
+              <span>Competencies</span>
+            </a>
+            <a class="sidebar__link sidebar__link--tasks {% if request.resolver_match.url_name == 'task_list' %}is-active{% endif %}" href="{% url 'task_list' %}">
+              <span>Tasks</span>
+            </a>
+            <a class="sidebar__link sidebar__link--results {% if request.resolver_match.url_name == 'result_list' %}is-active{% endif %}" href="{% url 'result_list' %}">
+              <span>Results</span>
+            </a>
+            <a class="sidebar__link sidebar__link--reports {% if request.resolver_match.url_name == 'report_view' %}is-active{% endif %}" href="{% url 'report_view' %}">
+              <span>Reports</span>
+            </a>
             {% if show_subject_switch %}
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'subject_select' %}is-active{% endif %}" href="{% url 'subject_select' %}">Select Subject</a>
+            <a class="sidebar__link sidebar__link--subject {% if request.resolver_match.url_name == 'subject_select' %}is-active{% endif %}" href="{% url 'subject_select' %}">
+              <span>Select Subject</span>
+            </a>
             {% endif %}
           </div>
           {% endif %}
@@ -41,30 +68,53 @@
           {% if role == 'Learner' %}
           <div class="sidebar__group">
             <span class="sidebar__group-label">Learner</span>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'feedback_view' %}is-active{% endif %}" href="{% url 'feedback_view' %}">My Feedback</a>
+            <a class="sidebar__link sidebar__link--feedback {% if request.resolver_match.url_name == 'feedback_view' %}is-active{% endif %}" href="{% url 'feedback_view' %}">
+              <span>My Feedback</span>
+            </a>
           </div>
           {% endif %}
 
           {% if user|can_manage_users %}
           <div class="sidebar__group">
             <span class="sidebar__group-label">Admin</span>
-            <a class="sidebar__link {% if request.resolver_match.url_name == 'user_list' %}is-active{% endif %}" href="{% url 'user_list' %}">Users</a>
+            <a class="sidebar__link sidebar__link--users {% if request.resolver_match.url_name == 'user_list' %}is-active{% endif %}" href="{% url 'user_list' %}">
+              <span>Users</span>
+            </a>
           </div>
           {% endif %}
           {% endwith %}
         </nav>
 
         <div class="sidebar__footer">
-          <form method="post" action="{% url 'logout' %}" class="logout-form">
-            {% csrf_token %}
-            <button type="submit" class="sidebar__logout">Logout</button>
-          </form>
+          <div class="sidebar__copyright">
+            <span>© 2024 Academic Tracking</span>
+            <span>All rights reserved.</span>
+          </div>
         </div>
       </aside>
       {% endif %}
 
       <div class="app-main">
         <main class="container">
+          {% if user.is_authenticated %}
+          <header class="app-topbar">
+            <div class="app-topbar__spacer" aria-hidden="true"></div>
+            <div class="app-topbar__user">
+              <div class="app-topbar__avatar" aria-hidden="true"></div>
+              <div class="app-topbar__meta">
+                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                {% with role=user|user_role %}
+                <span>{{ role }}</span>
+                {% endwith %}
+              </div>
+              <form method="post" action="{% url 'logout' %}" class="logout-form app-topbar__logout">
+                {% csrf_token %}
+                <button type="submit" class="app-topbar__logout-btn">Logout</button>
+              </form>
+            </div>
+          </header>
+          {% endif %}
+
           {% if active_subject %}
           <section class="panel">
             <p>

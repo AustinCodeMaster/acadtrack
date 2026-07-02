@@ -6,25 +6,155 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login</title>
     <link rel="stylesheet" href="{% static 'core/style.css' %}" />
+    <style>
+      body.auth-page {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background: linear-gradient(135deg, #edf4ff 0%, #f8fbff 52%, #eef4ff 100%);
+      }
+
+      body.auth-page .auth-shell {
+        width: min(100%, 440px);
+        grid-template-columns: 1fr;
+      }
+
+      body.auth-page .auth-card {
+        width: 100%;
+        min-height: 520px;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(133, 163, 220, 0.18);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px rgba(70, 103, 167, 0.14);
+        overflow: hidden;
+      }
+
+      body.auth-page .auth-card__header {
+        padding: 1.6rem 1.8rem 1.2rem;
+        background: #ffffff;
+        color: #10264c;
+        border-bottom: 1px solid #e3ebf7;
+      }
+
+      body.auth-page .auth-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-bottom: 1rem;
+      }
+
+      body.auth-page .auth-brand h1 {
+        margin: 0;
+        font-size: 1.08rem;
+        line-height: 1.2;
+        letter-spacing: 0;
+        text-transform: none;
+        opacity: 1;
+        color: #10264c;
+        font-weight: 800;
+      }
+
+      body.auth-page .auth-brand p {
+        margin: 0.2rem 0 0;
+        font-size: 0.95rem;
+        opacity: 0.9;
+        color: #5d739d;
+      }
+
+      body.auth-page .auth-copy h2 {
+        display: none;
+      }
+
+      body.auth-page .auth-copy p {
+        margin: 0;
+        max-width: 32rem;
+        line-height: 1.6;
+        font-size: 0.98rem;
+        color: #5d739d;
+      }
+
+      body.auth-page .auth-form {
+        padding: 1.7rem 2rem 2rem;
+      }
+
+      body.auth-page .auth-field {
+        margin-bottom: 1rem;
+      }
+
+      body.auth-page .auth-field label {
+        color: #213a66;
+        font-weight: 700;
+      }
+
+      body.auth-page .auth-field input {
+        border: 1px solid #d9e3f4;
+        border-radius: 12px;
+        padding: 0.82rem 0.85rem;
+      }
+
+      body.auth-page .auth-field input:focus {
+        outline: 2px solid rgba(47, 125, 246, 0.16);
+        border-color: #4f84f6;
+      }
+
+      body.auth-page .auth-button {
+        width: 100%;
+        border-radius: 12px;
+        background: linear-gradient(90deg, #1d4ed8 0%, #2f7df6 100%);
+        box-shadow: 0 14px 24px rgba(47, 125, 246, 0.2);
+        padding: 0.95rem 1rem;
+        font-weight: 700;
+      }
+
+      body.auth-page .message.error {
+        margin: 1rem 1.8rem 0;
+        border-radius: 12px;
+      }
+
+      @media (max-width: 600px) {
+        body.auth-page {
+          padding: 0.8rem;
+        }
+
+        body.auth-page .auth-shell {
+          width: 100%;
+        }
+
+        body.auth-page .auth-card {
+          border-radius: 18px;
+          min-height: auto;
+        }
+
+        body.auth-page .auth-card__header,
+        body.auth-page .auth-form {
+          padding-left: 1.2rem;
+          padding-right: 1.2rem;
+        }
+
+        body.auth-page .auth-meta {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
   </head>
   <body class="auth-page">
     <main class="auth-shell">
-      <section class="auth-card panel">
+      <section class="auth-card">
         <div class="auth-card__header">
-          <p class="auth-kicker">Academic Tracking</p>
-          <h1>Academic Tracking Application</h1>
-          <p class="auth-copy">
-            Transparent CBC competency assessment platform
-          </p>
+          <div class="auth-brand">
+            <div>
+              <h1>Academic Tracking Application</h1>
+              <p>CBC Competency Assessment</p>
+            </div>
+          </div>
+          <div class="auth-copy">
+            <h2>Log In</h2>
+            <p>Use your email address or username and password to continue.</p>
+          </div>
         </div>
-
-        <div class="auth-tabs" aria-hidden="true">
-          <span class="auth-tab is-active">Log In</span>
-          <span class="auth-tab">Create Account</span>
-        </div>
-
-        <h2 class="auth-title">Log In</h2>
-        <p class="auth-intro">Use your email address or username and password to continue.</p>
 
         {% if form.non_field_errors %}
         <div class="message error">
@@ -34,7 +164,7 @@
 
         <form method="post" class="auth-form" novalidate>
           {% csrf_token %}
-          <div class="form-field">
+          <div class="form-field auth-field">
             <label for="{{ form.username.id_for_label }}">Email address or username</label>
             {{ form.username }}
             {% if form.username.errors %}
@@ -42,17 +172,12 @@
             {% endif %}
           </div>
 
-          <div class="form-field">
+          <div class="form-field auth-field">
             <label for="{{ form.password.id_for_label }}">Password</label>
             {{ form.password }}
             {% if form.password.errors %}
             <div class="field-error">{{ form.password.errors }}</div>
             {% endif %}
-          </div>
-
-          <div class="auth-meta">
-            <span>Secure sign in for staff and learners</span>
-            <a href="#" aria-disabled="true" tabindex="-1">Forgot password?</a>
           </div>
 
           <div class="actions auth-actions">
