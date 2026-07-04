@@ -33,6 +33,7 @@ class UserAccount(models.Model):
 	]
 
 	user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='account')
+	teacher_id = models.PositiveIntegerField(unique=True, null=True, blank=True, editable=False)
 	role = models.CharField(max_length=20, choices=ROLE_CHOICES)
 	status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
 	subjects = models.ManyToManyField(Subject, blank=True, related_name='teachers')

@@ -154,7 +154,9 @@
     <div class="user-form-hero__copy">
       <p class="user-form-hero__eyebrow">Admin Control</p>
       <h2>{{ title }}</h2>
-      {% if title == 'Create User Account' %}
+      {% if title == 'Create Teacher Account' %}
+      <p>Create a teacher account with a username, email, password, and active status.</p>
+      {% elif title == 'Create User Account' %}
       <p>Create a Teacher or Learner account, then assign subjects when needed.</p>
       {% elif title == 'Update User Account' %}
       <p>Update the selected user’s role, status, and profile information.</p>

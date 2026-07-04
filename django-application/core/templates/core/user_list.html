@@ -205,7 +205,8 @@
       <h2>User Accounts</h2>
       <p>Manage user access, keep accounts active or inactive, and update roles from one clean workspace.</p>
       <div class="users-hero__actions">
-        <a class="users-create-btn" href="{% url 'user_create' %}">Create User</a>
+        <a class="users-create-btn" href="{% url 'user_create' %}">Create Teacher Account</a>
+        <a class="users-btn-link" href="{% url 'learner_account_create' %}">Create Learner Account</a>
       </div>
     </div>
   </section>
@@ -234,6 +235,7 @@
       <thead>
         <tr>
           <th>Full Name</th>
+          <th>Teacher ID</th>
           <th>Email</th>
           <th>Role</th>
           <th>Status</th>
@@ -244,6 +246,7 @@
         {% for row in user_rows %}
         <tr>
           <td>{{ row.user_obj.first_name }} {{ row.user_obj.last_name }}</td>
+          <td>{{ row.teacher_id|default:'-' }}</td>
           <td>{{ row.user_obj.email }}</td>
           <td>{{ row.role|default:'N/A' }}</td>
           <td>{{ row.status|default:'N/A' }}</td>
@@ -263,7 +266,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="5" class="users-empty">No users found.</td>
+          <td colspan="6" class="users-empty">No users found.</td>
         </tr>
         {% endfor %}
       </tbody>

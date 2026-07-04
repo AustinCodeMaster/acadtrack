@@ -14,6 +14,7 @@ urlpatterns = [
 
     path('users/', views.user_list, name='user_list'),
     path('users/create/', views.user_create, name='user_create'),
+    path('users/create/learner/', views.learner_account_create, name='learner_account_create'),
     path('users/<int:user_id>/edit/', views.user_update, name='user_update'),
     path('users/<int:user_id>/deactivate/', views.user_deactivate, name='user_deactivate'),
 
@@ -39,5 +40,6 @@ urlpatterns = [
     path('results/<int:pk>/delete/', views.result_delete, name='result_delete'),
 
     path('reports/', views.report_view, name='report_view'),
+    path('my-reports/', views.my_reports_view, name='my_reports'),
     path('feedback/', views.feedback_view, name='feedback_view'),
 ]

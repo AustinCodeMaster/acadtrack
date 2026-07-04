@@ -65,6 +65,144 @@ class SubjectForm(forms.ModelForm):
         fields = ['subject_code', 'subject_name']
 
 
+class TeacherAccountCreateForm(forms.Form):
+    full_name = forms.CharField(max_length=100)
+    username = forms.CharField(max_length=150)
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+    password = forms.CharField(
+        required=True,
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    confirm_password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    status = forms.ChoiceField(
+        choices=UserAccount.STATUS_CHOICES,
+        initial=UserAccount.STATUS_ACTIVE,
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('This username is already in use.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('This email address is already in use.')
+        return email
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        if len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long.')
+        return password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+        if password and confirm_password and password != confirm_password:
+            self.add_error('confirm_password', 'Password and confirm password do not match.')
+        return cleaned_data
+
+    def save(self):
+        full_name = self.cleaned_data['full_name'].strip()
+        first_name, _, last_name = full_name.partition(' ')
+        user = User.objects.create_user(
+            username=self.cleaned_data['username'].strip(),
+            password=self.cleaned_data['password'],
+            first_name=first_name,
+            last_name=last_name,
+            email=self.cleaned_data['email'],
+            is_active=self.cleaned_data['status'] == UserAccount.STATUS_ACTIVE,
+            is_staff=True,
+            is_superuser=False,
+        )
+        account = UserAccount.objects.create(
+            user=user,
+            teacher_id=user.pk,
+            role=UserAccount.ROLE_TEACHER,
+            status=self.cleaned_data['status'],
+        )
+        return account
+
+
+class LearnerAccountCreateForm(forms.Form):
+    username = forms.CharField(max_length=150)
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+    password = forms.CharField(
+        required=True,
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    confirm_password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    status = forms.ChoiceField(
+        choices=UserAccount.STATUS_CHOICES,
+        initial=UserAccount.STATUS_ACTIVE,
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('This username is already in use.')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('This email address is already in use.')
+        return email
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        if len(password) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long.')
+        return password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+        if password and confirm_password and password != confirm_password:
+            self.add_error('confirm_password', 'Password and confirm password do not match.')
+        return cleaned_data
+
+    def save(self, learner):
+        full_name = learner.full_name.strip()
+        first_name, _, last_name = full_name.partition(' ')
+        user = User.objects.create_user(
+            username=self.cleaned_data['username'].strip(),
+            password=self.cleaned_data['password'],
+            first_name=first_name,
+            last_name=last_name,
+            email=self.cleaned_data['email'],
+            is_active=self.cleaned_data['status'] == UserAccount.STATUS_ACTIVE,
+            is_staff=False,
+            is_superuser=False,
+        )
+        account = UserAccount.objects.create(
+            user=user,
+            role=UserAccount.ROLE_LEARNER,
+            status=self.cleaned_data['status'],
+        )
+        learner.user_account = account
+        learner.save(update_fields=['user_account'])
+        return account
+
+
 class UserAccountCreateForm(forms.Form):
     email = forms.EmailField(
         required=True,
@@ -244,10 +382,14 @@ class CompetencyForm(forms.ModelForm):
 
 
 class AssessmentTaskForm(forms.ModelForm):
-    def __init__(self, *args, active_subject=None, **kwargs):
+    def __init__(self, *args, active_subject=None, current_user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if current_user and hasattr(current_user, 'account') and getattr(current_user.account, 'role', None) == UserAccount.ROLE_TEACHER:
+            competencies = Competency.objects.filter(created_by=current_user)
+            if self.instance and self.instance.pk:
+                competencies = competencies | Competency.objects.filter(pk=self.instance.competency_id)
+            self.fields['competency'].queryset = competencies.distinct().order_by('competency_code')
         if active_subject:
-            self.fields['competency'].queryset = Competency.objects.all()
             self.fields['subject'].initial = active_subject
             self.fields['subject'].widget = forms.HiddenInput()
         else:
@@ -298,12 +440,22 @@ class AssessmentTaskForm(forms.ModelForm):
 
 
 class AssessmentResultForm(forms.ModelForm):
-    def __init__(self, *args, active_subject=None, **kwargs):
+    def __init__(self, *args, active_subject=None, current_user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['learner'].queryset = LearnerProfile.objects.order_by('full_name')
-        self.fields['task'].queryset = AssessmentTask.objects.select_related('competency').order_by('task_name')
+        learners = LearnerProfile.objects.order_by('full_name')
+        tasks = AssessmentTask.objects.select_related('competency').order_by('task_name')
+        if current_user and hasattr(current_user, 'account') and getattr(current_user.account, 'role', None) == UserAccount.ROLE_TEACHER:
+            learners = learners.filter(created_by=current_user)
+            tasks = tasks.filter(created_by=current_user)
+            if self.instance and self.instance.pk:
+                learners = learners | LearnerProfile.objects.filter(pk=self.instance.learner_id)
+                tasks = tasks | AssessmentTask.objects.filter(pk=self.instance.task_id)
+        self.fields['learner'].queryset = learners.distinct()
+        self.fields['task'].queryset = tasks.distinct()
         if active_subject:
             tasks = AssessmentTask.objects.filter(subject=active_subject)
+            if current_user and hasattr(current_user, 'account') and getattr(current_user.account, 'role', None) == UserAccount.ROLE_TEACHER:
+                tasks = tasks.filter(created_by=current_user)
             if self.instance and self.instance.pk:
                 tasks = tasks | AssessmentTask.objects.filter(pk=self.instance.task_id)
             self.fields['task'].queryset = tasks.distinct()

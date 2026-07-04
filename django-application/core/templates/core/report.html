@@ -269,12 +269,13 @@
 <section class="report-page">
     <section class="report-hero">
         <div class="report-hero__copy">
-            <p class="report-hero__eyebrow">Teacher Reports</p>
+            <p class="report-hero__eyebrow">{% if current_role == 'Learner' %}Learner Reports{% else %}Teacher Reports{% endif %}</p>
             <h2>Competency Mastery Report</h2>
-            <p>Generate a simple learner competency report, review results, and save teacher feedback.</p>
+            <p>{% if current_role == 'Learner' %}View your competency report, progress, and saved teacher feedback.{% else %}Generate a simple learner competency report, review results, and save teacher feedback.{% endif %}</p>
         </div>
     </section>
 
+    {% if current_role != 'Learner' %}
     <section class="report-toolbar">
         <form method="get" class="report-filters">
             <div class="report-field">
@@ -301,13 +302,18 @@
             </div>
         </form>
     </section>
+    {% else %}
+    <section class="report-toolbar">
+        <p class="report-note">Open a report from My Reports to view competency progress and teacher feedback.</p>
+    </section>
+    {% endif %}
 
     {% if view_requested and not selected_learner %}
-    <div class="message error">Select a learner to generate the report.</div>
+    <div class="message error">Select a learner to view the report.</div>
     {% endif %}
 
     {% if view_requested and not selected_competency_obj %}
-    <div class="message error">Select a competency to generate the report.</div>
+    <div class="message error">Select a competency to view the report.</div>
     {% endif %}
 
     {% if view_requested and selected_learner and selected_competency_obj %}
@@ -362,7 +368,16 @@
 
     <section class="report-section">
         <h3>Teacher Feedback</h3>
-        <p class="report-note">Write feedback for the selected learner and competency, then save the report.</p>
+        <p class="report-note">{% if current_role == 'Learner' %}Review the saved teacher feedback for this competency.{% else %}Write feedback for the selected learner and competency, then save the report.{% endif %}</p>
+        {% if current_role == 'Learner' %}
+        <div style="margin-top:0.9rem; padding:0.9rem; border:1px solid #e3ebf7; border-radius:14px; background:#fbfdff;">
+            {% if report_feedback %}
+            <p class="report-note" style="margin:0;"><strong>Teacher Feedback:</strong> {{ report_feedback.feedback }}</p>
+            {% else %}
+            <p class="report-note" style="margin:0;">No saved teacher feedback is available for this competency yet.</p>
+            {% endif %}
+        </div>
+        {% else %}
         {% if report_already_saved %}
         <div class="message success" style="margin-top:0.75rem;">
             Report already saved for this learner and competency. Existing feedback has been loaded.
@@ -386,6 +401,7 @@
             <p class="report-note" style="margin:0.35rem 0 0;"><strong>Competency:</strong> {{ selected_competency_obj.competency_name }}</p>
             <p class="report-note" style="margin:0.35rem 0 0;"><strong>Saved feedback:</strong> {{ report_feedback.feedback }}</p>
         </div>
+        {% endif %}
         {% endif %}
     </section>
     {% endif %}
