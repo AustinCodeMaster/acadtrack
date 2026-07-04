@@ -102,7 +102,7 @@ class AssessmentTask(models.Model):
 	created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='created_tasks')
 	task_name = models.CharField(max_length=100, unique=True)
 	description = models.TextField()
-	task_date = models.DateField(auto_now_add=True)
+	task_date = models.DateField(default=timezone.localdate)
 	created_at = models.DateTimeField(default=timezone.now, editable=False)
 
 	class Meta:

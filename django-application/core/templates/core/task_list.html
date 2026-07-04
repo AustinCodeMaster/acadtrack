@@ -320,6 +320,7 @@
       <thead>
         <tr>
           <th>Task Name</th>
+          <th>Task Date</th>
           <th>Competency</th>
           <th>Description</th>
           <th>Actions</th>
@@ -329,6 +330,7 @@
         {% for task in tasks %}
         <tr>
           <td>{{ task.task_name }}</td>
+          <td>{{ task.task_date|date:'Y-m-d' }}</td>
           <td>{{ task.competency.competency_code }} - {{ task.competency.competency_name }}</td>
           <td>{{ task.description|default:'-' }}</td>
           <td>
@@ -338,7 +340,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="4" class="tasks-empty">No tasks found.</td>
+          <td colspan="5" class="tasks-empty">No tasks found.</td>
         </tr>
         {% endfor %}
       </tbody>

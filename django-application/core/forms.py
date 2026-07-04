@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, Subject, UserAccount
 
@@ -251,14 +252,17 @@ class AssessmentTaskForm(forms.ModelForm):
             self.fields['subject'].widget = forms.HiddenInput()
         else:
             self.fields['subject'].widget = forms.HiddenInput()
+        if not self.instance.pk and not self.initial.get('task_date'):
+            self.fields['task_date'].initial = timezone.localdate()
 
     class Meta:
         model = AssessmentTask
-        fields = ['subject', 'competency', 'task_name', 'description']
+        fields = ['subject', 'competency', 'task_name', 'description', 'task_date']
         labels = {
             'task_name': 'Task Name',
             'competency': 'Competency',
             'description': 'Description',
+            'task_date': 'Task Date',
         }
         error_messages = {
             'competency': {
@@ -274,6 +278,7 @@ class AssessmentTaskForm(forms.ModelForm):
         widgets = {
             'task_name': forms.TextInput(attrs={'placeholder': 'Addition Problems Test'}),
             'description': forms.Textarea(attrs={'rows': 5, 'placeholder': 'What the task is about'}),
+            'task_date': forms.DateInput(attrs={'type': 'date'}),
         }
 
     def clean_task_name(self):

@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Avg, Count, Max, Min, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -439,7 +439,26 @@ def learner_delete(request, pk):
 
 	learner = get_object_or_404(LearnerProfile, pk=pk)
 	if request.method == 'POST':
-		learner.delete()
+		try:
+			with transaction.atomic():
+				table_names = set(connection.introspection.table_names())
+				if 'core_learnerreportfeedback' in table_names:
+					with connection.cursor() as cursor:
+						if 'core_learnerreportfeedback_assessment_results' in table_names:
+							cursor.execute(
+								'''DELETE FROM core_learnerreportfeedback_assessment_results
+								   WHERE learnerreportfeedback_id IN (
+									   SELECT id FROM core_learnerreportfeedback WHERE learner_id = %s
+								   )''',
+								[learner.pk],
+							)
+						cursor.execute('DELETE FROM core_learnerreportfeedback WHERE learner_id = %s', [learner.pk])
+
+				LearnerProfile.objects.select_for_update().get(pk=pk).delete()
+		except IntegrityError:
+			messages.error(request, 'Learner could not be deleted because related records still exist.')
+			return redirect('learner_list')
+
 		messages.success(request, 'Learner profile deleted successfully.')
 		return redirect('learner_list')
 	return render(request, 'core/learner_confirm_delete.html', {'object': learner})
