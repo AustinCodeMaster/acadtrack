@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, LearnerReportFeedback, TeacherLearnerRecord, UserAccount
+from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, LearnerReportFeedback, TeacherLearnerCompetencyAssignment, TeacherLearnerRecord, UserAccount
 
 
 @admin.register(UserAccount)
@@ -28,6 +28,18 @@ class TeacherLearnerRecordAdmin(admin.ModelAdmin):
 class CompetencyAdmin(admin.ModelAdmin):
 	list_display = ('competency_code', 'competency_name', 'created_by', 'created_at')
 	search_fields = ('competency_code', 'competency_name', 'learning_outcome')
+
+
+@admin.register(TeacherLearnerCompetencyAssignment)
+class TeacherLearnerCompetencyAssignmentAdmin(admin.ModelAdmin):
+	list_display = ('teacher_learner_record', 'competency', 'assigned_at')
+	list_filter = ('competency', 'teacher_learner_record__teacher')
+	search_fields = (
+		'teacher_learner_record__teacher__username',
+		'teacher_learner_record__learner_profile__full_name',
+		'competency__competency_code',
+		'competency__competency_name',
+	)
 
 
 @admin.register(AssessmentTask)

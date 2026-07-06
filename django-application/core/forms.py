@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, Subject, TeacherLearnerRecord, UserAccount
+from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, Subject, TeacherLearnerCompetencyAssignment, TeacherLearnerRecord, UserAccount
 
 
 ACCOUNT_ROLE_CHOICES = [
@@ -536,3 +536,21 @@ class BulkAssessmentResultEntryForm(forms.Form):
         if not feedback:
             raise forms.ValidationError('Feedback is required.')
         return feedback
+
+
+class TeacherLearnerCompetencyAssignmentForm(forms.Form):
+    competencies = forms.ModelMultipleChoiceField(
+        queryset=Competency.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Assigned Competencies',
+    )
+
+    def __init__(self, *args, teacher_learner_record, current_user, **kwargs):
+        super().__init__(*args, **kwargs)
+        competency_queryset = Competency.objects.filter(created_by=current_user).order_by('competency_code')
+        self.fields['competencies'].queryset = competency_queryset
+        assigned_ids = TeacherLearnerCompetencyAssignment.objects.filter(
+            teacher_learner_record=teacher_learner_record
+        ).values_list('competency_id', flat=True)
+        self.fields['competencies'].initial = list(assigned_ids)

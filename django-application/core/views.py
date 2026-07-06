@@ -15,13 +15,14 @@ from .forms import (
 	AssessmentTaskForm,
 	CompetencyForm,
 	LearnerAccountCreateForm,
+	TeacherLearnerCompetencyAssignmentForm,
 	TeacherAccountCreateForm,
 	SubjectForm,
 	SubjectSelectionForm,
 	UserAccountCreateForm,
 	UserAccountUpdateForm,
 )
-from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, LearnerReportFeedback, Subject, TeacherLearnerRecord, UserAccount
+from .models import AssessmentResult, AssessmentTask, Competency, LearnerProfile, LearnerReportFeedback, Subject, TeacherLearnerCompetencyAssignment, TeacherLearnerRecord, UserAccount
 
 
 ACTIVE_SUBJECT_SESSION_KEY = 'active_subject_id'
@@ -458,7 +459,7 @@ def learner_list(request):
 		return access_denied
 
 	query = request.GET.get('q', '').strip()
-	learners = _teacher_learner_records(request.user)
+	learners = _teacher_learner_records(request.user).annotate(assignment_count=Count('competency_assignments'))
 	if query:
 		learners = learners.filter(
 			Q(learner_profile__full_name__icontains=query)
@@ -492,9 +493,9 @@ def learner_create(request):
 		elif existing_record:
 			messages.info(request, 'This learner is already saved in your records.')
 		else:
-			TeacherLearnerRecord.objects.create(teacher=request.user, learner_profile=learner)
-			messages.success(request, 'Learner record saved successfully.')
-			return redirect('learner_list')
+			record = TeacherLearnerRecord.objects.create(teacher=request.user, learner_profile=learner)
+			messages.success(request, 'Learner record saved successfully. You can now assign competencies.')
+			return redirect('learner_competency_assign', pk=record.pk)
 	return render(
 		request,
 		'core/teacher_learner_record_form.html',
@@ -528,6 +529,68 @@ def learner_delete(request, pk):
 		messages.success(request, 'Learner record removed from your workspace successfully.')
 		return redirect('learner_list')
 	return render(request, 'core/learner_confirm_delete.html', {'object': learner})
+
+
+@login_required
+def learner_competency_assign(request, pk):
+	access_denied = _deny_if_not(_is_teacher(request.user))
+	if access_denied:
+		return access_denied
+
+	teacher_learner_record = get_object_or_404(_teacher_learner_records(request.user), pk=pk)
+	if request.method == 'POST':
+		form = TeacherLearnerCompetencyAssignmentForm(
+			request.POST,
+			teacher_learner_record=teacher_learner_record,
+			current_user=request.user,
+		)
+		if form.is_valid():
+			selected_competencies = list(form.cleaned_data['competencies'])
+			selected_ids = {competency.id for competency in selected_competencies}
+
+			TeacherLearnerCompetencyAssignment.objects.filter(
+				teacher_learner_record=teacher_learner_record
+			).exclude(competency_id__in=selected_ids).delete()
+
+			existing_ids = set(
+				TeacherLearnerCompetencyAssignment.objects.filter(
+					teacher_learner_record=teacher_learner_record,
+					competency_id__in=selected_ids,
+				).values_list('competency_id', flat=True)
+			)
+			TeacherLearnerCompetencyAssignment.objects.bulk_create(
+				[
+					TeacherLearnerCompetencyAssignment(
+						teacher_learner_record=teacher_learner_record,
+						competency=competency,
+					)
+					for competency in selected_competencies
+					if competency.id not in existing_ids
+				],
+				ignore_conflicts=True,
+			)
+
+			messages.success(request, 'Competency assignments updated successfully.')
+			return redirect('learner_list')
+	else:
+		form = TeacherLearnerCompetencyAssignmentForm(
+			teacher_learner_record=teacher_learner_record,
+			current_user=request.user,
+		)
+
+	assigned_competencies = Competency.objects.filter(
+		teacher_assignments__teacher_learner_record=teacher_learner_record
+	).order_by('competency_code')
+
+	return render(
+		request,
+		'core/learner_competency_assignment_form.html',
+		{
+			'form': form,
+			'teacher_learner_record': teacher_learner_record,
+			'assigned_competencies': assigned_competencies,
+		},
+	)
 
 
 @login_required

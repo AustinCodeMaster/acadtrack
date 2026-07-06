@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('learners/', views.learner_list, name='learner_list'),
     path('learners/create/', views.learner_create, name='learner_create'),
+    path('learners/<int:pk>/competencies/assign/', views.learner_competency_assign, name='learner_competency_assign'),
     path('learners/<int:pk>/edit/', views.learner_update, name='learner_update'),
     path('learners/<int:pk>/delete/', views.learner_delete, name='learner_delete'),
 

@@ -112,6 +112,32 @@ class Competency(models.Model):
 		return f'{self.competency_code} - {self.competency_name}'
 
 
+class TeacherLearnerCompetencyAssignment(models.Model):
+	teacher_learner_record = models.ForeignKey(
+		TeacherLearnerRecord,
+		on_delete=models.CASCADE,
+		related_name='competency_assignments',
+	)
+	competency = models.ForeignKey(
+		Competency,
+		on_delete=models.CASCADE,
+		related_name='teacher_assignments',
+	)
+	assigned_at = models.DateTimeField(default=timezone.now, editable=False)
+
+	class Meta:
+		ordering = ['competency__competency_code']
+		constraints = [
+			models.UniqueConstraint(
+				fields=['teacher_learner_record', 'competency'],
+				name='unique_teacher_learner_competency_assignment',
+			),
+		]
+
+	def __str__(self):
+		return f'{self.teacher_learner_record} - {self.competency.competency_code}'
+
+
 class AssessmentTask(models.Model):
 	subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='assessment_tasks', null=True, blank=True)
 	competency = models.ForeignKey(Competency, on_delete=models.CASCADE, related_name='tasks')

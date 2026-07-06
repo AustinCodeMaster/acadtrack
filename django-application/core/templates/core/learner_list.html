@@ -275,6 +275,7 @@
         <th>Gender</th>
         <th>Class</th>
         <th>Account Status</th>
+        <th>Assigned Competencies</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -286,13 +287,15 @@
         <td>{{ learner.learner_profile.gender }}</td>
         <td>{{ learner.learner_profile.class_name }}</td>
         <td>{{ learner.learner_profile.user_account.status|default:'No account' }}</td>
+        <td>{{ learner.assignment_count }}</td>
         <td>
+          <a class="learner-action learner-action--edit" href="{% url 'learner_competency_assign' learner.id %}">Assign</a>
           <a class="learner-action learner-action--delete" href="{% url 'learner_delete' learner.id %}">Remove</a>
         </td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="6" class="learners-empty">No learners found.</td>
+        <td colspan="7" class="learners-empty">No learners found.</td>
       </tr>
       {% endfor %}
     </tbody>
