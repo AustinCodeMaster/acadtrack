@@ -25,7 +25,7 @@
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #2f7df6;
+    color: #3f60ad;
   }
 
   .my-reports-hero h2 {
@@ -90,7 +90,7 @@
     padding: 0.55rem 0.9rem;
     border-radius: 10px;
     border: 1px solid transparent;
-    background: linear-gradient(90deg, #1d4ed8 0%, #2f7df6 100%);
+    background: linear-gradient(90deg, #365596 0%, #3f60ad 100%);
     box-shadow: 0 10px 20px rgba(47, 125, 246, 0.2);
     color: #fff;
     text-decoration: none;
@@ -108,7 +108,7 @@
     }
 
     .my-reports-table table {
-      min-width: 680px;
+      min-width: 520px;
     }
   }
 </style>
@@ -124,7 +124,6 @@
     <table>
       <thead>
         <tr>
-          <th>Subject</th>
           <th>Competency</th>
           <th>Date Generated</th>
           <th>Action</th>
@@ -133,7 +132,6 @@
       <tbody>
         {% for row in report_rows %}
         <tr>
-          <td>{{ row.subject_name }}</td>
           <td>{{ row.report.competency.competency_name }}</td>
           <td>{{ row.report.created_at|date:'d M Y' }}</td>
           <td>
@@ -142,7 +140,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="4" class="my-reports-empty">No saved reports are available yet.</td>
+          <td colspan="3" class="my-reports-empty">No saved reports are available yet.</td>
         </tr>
         {% endfor %}
       </tbody>

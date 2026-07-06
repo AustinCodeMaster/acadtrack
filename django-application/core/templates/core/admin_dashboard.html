@@ -17,10 +17,7 @@
   }
 
   .admin-hero {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1.5rem;
+    display: block;
     padding: 1.7rem 1.8rem;
   }
 
@@ -34,7 +31,7 @@
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #2f7df6;
+    color: var(--primary-blue);
   }
 
   .admin-hero__copy h2 {
@@ -69,96 +66,27 @@
     border-radius: 12px;
     font-weight: 700;
     text-decoration: none;
-    border: 1px solid #d9e3f4;
-    background: #fff;
-    color: #20385f;
     transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
   }
 
-  .admin-btn {
-    background: linear-gradient(90deg, #1d4ed8 0%, #2f7df6 100%);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 14px 24px rgba(47, 125, 246, 0.2);
+  .admin-btn-link {
+    border: 1px solid #d9e3f4;
+    background: #fff;
+    color: #20385f;
   }
 
-  .admin-btn:hover {
-    transform: translateY(-1px);
-    color: #ffffff;
-    box-shadow: 0 16px 26px rgba(47, 125, 246, 0.26);
+  .admin-btn {
+    transform: translateY(0);
   }
 
   .admin-btn-link:hover {
     transform: translateY(-1px);
-    background: rgba(47, 125, 246, 0.1);
-    border-color: rgba(47, 125, 246, 0.18);
-    color: #1657d6;
-    box-shadow: 0 14px 24px rgba(47, 125, 246, 0.12);
+    background: rgba(var(--primary-blue-rgb), 0.1);
+    border-color: rgba(var(--primary-blue-rgb), 0.25);
+    color: var(--primary-blue-hover);
+    box-shadow: 0 14px 24px rgba(var(--primary-blue-rgb), 0.16);
   }
 
-  .admin-hero__art {
-    position: relative;
-    flex: 0 0 300px;
-    min-height: 180px;
-    border-radius: 20px;
-    background: linear-gradient(180deg, rgba(240, 246, 255, 0.95) 0%, rgba(225, 235, 250, 0.95) 100%);
-    overflow: hidden;
-  }
-
-  .admin-hero__art::before {
-    content: "";
-    position: absolute;
-    inset: 18px;
-    border-radius: 16px;
-    background: radial-gradient(circle at 80% 20%, rgba(47, 125, 246, 0.1), transparent 26%), radial-gradient(circle at 24% 74%, rgba(47, 125, 246, 0.08), transparent 30%);
-  }
-
-  .admin-art__shape {
-    position: absolute;
-    display: block;
-  }
-
-  .admin-art__shape--ring {
-    left: 34px;
-    top: 28px;
-    width: 86px;
-    height: 86px;
-    border-radius: 50%;
-    background: conic-gradient(#2f7df6 0 34%, #bdd0ff 34% 100%);
-    -webkit-mask: radial-gradient(circle, transparent 0 24px, #000 24px 34px, transparent 34px);
-            mask: radial-gradient(circle, transparent 0 24px, #000 24px 34px, transparent 34px);
-  }
-
-  .admin-art__shape--card {
-    left: 124px;
-    top: 18px;
-    width: 92px;
-    height: 122px;
-    border-radius: 16px;
-    border: 5px solid #6f8edd;
-    background: linear-gradient(180deg, #fff 0%, #f2f6ff 100%);
-    box-shadow: 0 12px 22px rgba(56, 94, 182, 0.12);
-  }
-
-  .admin-art__shape--panel {
-    left: 40px;
-    bottom: 26px;
-    width: 136px;
-    height: 76px;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #ffffff 0%, #eaf1ff 100%);
-    box-shadow: 0 12px 18px rgba(56, 94, 182, 0.08);
-  }
-
-  .admin-art__shape--accent {
-    right: 24px;
-    bottom: 28px;
-    width: 52px;
-    height: 64px;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #78a2ff 0%, #5d8fff 100%);
-    box-shadow: 0 10px 16px rgba(56, 94, 182, 0.14);
-  }
 
   .admin-stats {
     display: grid;
@@ -190,18 +118,6 @@
     color: #10264c;
   }
 
-  @media (max-width: 820px) {
-    .admin-hero {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .admin-hero__art {
-      width: 100%;
-      flex-basis: auto;
-    }
-  }
-
   @media (max-width: 640px) {
     .admin-hero,
     .admin-stats {
@@ -218,16 +134,10 @@
       <h2>Admin Dashboard</h2>
       <p>Manage who can access the system and keep accounts active or inactive from one organized workspace.</p>
       <div class="admin-hero__actions">
-        <a class="admin-btn" href="{% url 'user_list' %}">Manage User Accounts</a>
+        <a class="admin-btn btn-primary" href="{% url 'user_list' %}">Manage User Accounts</a>
         <a class="admin-btn-link" href="{% url 'user_create' %}">Create Teacher Account</a>
         <a class="admin-btn-link" href="{% url 'learner_account_create' %}">Create Learner Account</a>
       </div>
-    </div>
-    <div class="admin-hero__art" aria-hidden="true">
-      <span class="admin-art__shape admin-art__shape--ring"></span>
-      <span class="admin-art__shape admin-art__shape--card"></span>
-      <span class="admin-art__shape admin-art__shape--panel"></span>
-      <span class="admin-art__shape admin-art__shape--accent"></span>
     </div>
   </section>
 

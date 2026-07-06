@@ -2,6 +2,10 @@
     --bg: #f4f7fb;
     --panel: #ffffff;
     --brand: #2c3e50;
+    --primary-blue: #3f60ad;
+    --primary-blue-hover: #365596;
+    --primary-blue-rgb: 63, 96, 173;
+    --primary-on-blue: #ffffff;
     --accent: #1abc9c;
     --accent-dark: #16a085;
     --sidebar-width: 272px;
@@ -204,15 +208,23 @@ body.auth-page {
 }
 
 .sidebar__link:hover,
-.sidebar__logout:hover,
-.sidebar__link.is-active {
+.sidebar__logout:hover {
     background: rgba(47, 125, 246, 0.1);
     color: #1657d6;
 }
 
 .sidebar__link.is-active {
-    box-shadow: none;
-    background: rgba(47, 125, 246, 0.14);
+    background: var(--primary-blue);
+    color: var(--primary-on-blue);
+    border: 1px solid transparent;
+    box-shadow: 0 10px 18px rgba(var(--primary-blue-rgb), 0.24);
+}
+
+.sidebar__link.is-active:hover {
+    background: var(--primary-blue-hover);
+    color: var(--primary-on-blue);
+    border: 1px solid transparent;
+    box-shadow: 0 12px 20px rgba(var(--primary-blue-rgb), 0.28);
 }
 
 .sidebar__link::before,
@@ -1222,16 +1234,17 @@ th {
     gap: 0.6rem;
 }
 
-.btn {
-    background: linear-gradient(90deg, #20c5aa 0%, #1db597 100%);
-    color: #fff;
-    border: none;
+.btn,
+.btn-primary {
+    background: var(--primary-blue);
+    color: var(--primary-on-blue);
+    border: 1px solid transparent;
     padding: 0.55rem 1rem;
     border-radius: 12px;
     cursor: pointer;
     text-decoration: none;
     display: inline-block;
-    box-shadow: 0 10px 18px rgba(29, 181, 151, 0.18);
+    box-shadow: 0 10px 18px rgba(var(--primary-blue-rgb), 0.24);
 }
 
 .btn-secondary {
@@ -1239,7 +1252,11 @@ th {
 }
 
 .btn:hover,
+.btn-primary:hover,
 .sidebar__logout:hover {
+    background: var(--primary-blue-hover);
+    color: var(--primary-on-blue);
+    border: 1px solid transparent;
     transform: translateY(-1px);
 }
 

@@ -32,12 +32,14 @@
 
         <nav class="sidebar__nav" aria-label="Primary navigation">
           {% with role=user|user_role %}
+          {% if role != 'Learner' %}
           <div class="sidebar__group">
             <span class="sidebar__group-label">Main</span>
             <a class="sidebar__link sidebar__link--dashboard {% if request.resolver_match.url_name == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}">
               <span>Dashboard</span>
             </a>
           </div>
+          {% endif %}
 
           {% if role == 'Teacher' %}
           <div class="sidebar__group">
